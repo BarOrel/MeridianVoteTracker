@@ -44,13 +44,13 @@ internal sealed class TestData(ApiFactory factory)
         var vote = Vote.CreateFromImport(UniqueVoteId(), 79, new DateOnly(2024, 1, 11), "Maritime Safety, Navigation and Trade", job.Id, 2, Now);
 
         await using var scope = OpenScope();
-        await scope.UnitOfWork.ExecuteInTransactionAsync(async ct =>
+        await scope.InRestrictedTransactionAsync(async (db, ct) =>
         {
-            scope.Db.Votes.Add(vote);
-            await scope.Db.SaveChangesAsync(ct); // flush inside the transaction to get the identity value
-            scope.Db.CountryVotes.Add(CountryVote.CreateFromImport(vote.Id, Bra, Ballot.Yes, job.Id, 2, Now));
-            scope.Db.VoteHistoryEvents.Add(VoteHistoryEvent.VoteCreated(vote.Id, job.Id, 2, Now));
-        }, CancellationToken.None);
+            db.Votes.Add(vote);
+            await db.SaveChangesAsync(ct); // flush inside the transaction to get the identity value
+            db.CountryVotes.Add(CountryVote.CreateFromImport(vote.Id, Bra, Ballot.Yes, job.Id, 2, Now));
+            db.VoteHistoryEvents.Add(VoteHistoryEvent.VoteCreated(vote.Id, job.Id, 2, Now));
+        });
         return (job, vote);
     }
 
@@ -72,6 +72,26 @@ internal sealed class TestData(ApiFactory factory)
         public AppDbContext Db { get; } = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         public IUnitOfWork UnitOfWork { get; } = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         public IServiceProvider Services => scope.ServiceProvider;
+
+        /// <summary>
+        /// Writes approved data / conflicts / audit rows the way a dedicated persistence port does:
+        /// inside a unit of work, within a restricted-write scope, flushed before the scope closes.
+        /// </summary>
+        public Task InRestrictedTransactionAsync(Func<AppDbContext, CancellationToken, Task> work) =>
+            InRestrictedTransactionAsync<object?>(async (db, ct) =>
+            {
+                await work(db, ct);
+                return null;
+            });
+
+        public Task<T> InRestrictedTransactionAsync<T>(Func<AppDbContext, CancellationToken, Task<T>> work) =>
+            UnitOfWork.ExecuteInTransactionAsync(async ct =>
+            {
+                using var _ = Db.AllowRestrictedWrites();
+                var result = await work(Db, ct);
+                await Db.SaveChangesAsync(ct);
+                return result;
+            }, CancellationToken.None);
 
         public ValueTask DisposeAsync() => scope.DisposeAsync();
     }

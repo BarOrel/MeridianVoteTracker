@@ -31,20 +31,20 @@ public class ApprovedDataConcurrencyTests(ApiFactory factory)
         var omarVote = await omar.Db.CountryVotes.SingleAsync(cv => cv.VoteId == vote.Id && cv.StateCode == Bra);
         var omarConflict = await omar.Db.Conflicts.SingleAsync(c => c.Id == noId);
 
-        await dana.UnitOfWork.ExecuteInTransactionAsync(_ =>
+        await dana.InRestrictedTransactionAsync((db, _) =>
         {
             danaConflict.Accept("dana", Now, null);
-            dana.Db.VoteHistoryEvents.Add(danaVote.ApplyAcceptedConflict(danaConflict, Now));
+            db.VoteHistoryEvents.Add(danaVote.ApplyAcceptedConflict(danaConflict, Now));
             return Task.CompletedTask;
-        }, CancellationToken.None);
+        });
 
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() =>
-            omar.UnitOfWork.ExecuteInTransactionAsync(_ =>
+            omar.InRestrictedTransactionAsync((db, _) =>
             {
                 omarConflict.Accept("omar", Now, null);
-                omar.Db.VoteHistoryEvents.Add(omarVote.ApplyAcceptedConflict(omarConflict, Now));
+                db.VoteHistoryEvents.Add(omarVote.ApplyAcceptedConflict(omarConflict, Now));
                 return Task.CompletedTask;
-            }, CancellationToken.None));
+            }));
 
         await using var check = _data.OpenScope();
         var approved = await check.Db.CountryVotes.AsNoTracking().SingleAsync(cv => cv.VoteId == vote.Id && cv.StateCode == Bra);
@@ -65,21 +65,21 @@ public class ApprovedDataConcurrencyTests(ApiFactory factory)
         var danaView = await dana.Db.Conflicts.SingleAsync(c => c.Id == conflictId);
         var omarView = await omar.Db.Conflicts.SingleAsync(c => c.Id == conflictId);
 
-        await dana.UnitOfWork.ExecuteInTransactionAsync(_ =>
+        await dana.InRestrictedTransactionAsync((db, _) =>
         {
             danaView.Accept("dana", Now, "Corrigendum");
-            dana.Db.VoteHistoryEvents.Add(danaVote.ApplyAcceptedConflict(danaView, Now));
+            db.VoteHistoryEvents.Add(danaVote.ApplyAcceptedConflict(danaView, Now));
             return Task.CompletedTask;
-        }, CancellationToken.None);
+        });
 
         // Omar's stale copy still says Pending, so the domain allows Reject; the conditional UPDATE does not.
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() =>
-            omar.UnitOfWork.ExecuteInTransactionAsync(_ =>
+            omar.InRestrictedTransactionAsync((db, _) =>
             {
                 omarView.Reject("omar", Now, null);
-                omar.Db.VoteHistoryEvents.Add(VoteHistoryEvent.ConflictRejected(omarView));
+                db.VoteHistoryEvents.Add(VoteHistoryEvent.ConflictRejected(omarView));
                 return Task.CompletedTask;
-            }, CancellationToken.None));
+            }));
 
         await using var check = _data.OpenScope();
         var stored = await check.Db.Conflicts.AsNoTracking().SingleAsync(c => c.Id == conflictId);
@@ -100,13 +100,13 @@ public class ApprovedDataConcurrencyTests(ApiFactory factory)
     private async Task<(Guid First, Guid Second)> CreatePendingConflictsAsync(Guid importJobId, int voteId, Ballot first, Ballot second)
     {
         await using var scope = _data.OpenScope();
-        return await scope.UnitOfWork.ExecuteInTransactionAsync(async ct =>
+        return await scope.InRestrictedTransactionAsync(async (db, ct) =>
         {
-            var approved = await scope.Db.CountryVotes.SingleAsync(cv => cv.VoteId == voteId && cv.StateCode == Bra, ct);
+            var approved = await db.CountryVotes.SingleAsync(cv => cv.VoteId == voteId && cv.StateCode == Bra, ct);
             var a = Conflict.ForCountryBallot(approved, first, importJobId, 3, Now);
             var b = Conflict.ForCountryBallot(approved, second, importJobId, 4, Now);
-            scope.Db.Conflicts.AddRange(a, b);
+            db.Conflicts.AddRange(a, b);
             return (a.Id, b.Id);
-        }, CancellationToken.None);
+        });
     }
 }

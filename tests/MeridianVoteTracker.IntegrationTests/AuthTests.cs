@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using MeridianVoteTracker.Api.Auth;
-using MeridianVoteTracker.Application.Users.Ports;
+using MeridianVoteTracker.Application.Users;
 using MeridianVoteTracker.Domain.Users;
 using MeridianVoteTracker.IntegrationTests.Infrastructure;
 using Microsoft.AspNetCore.Authorization;

@@ -4,7 +4,21 @@ Living document; each phase adds its decisions. Requirement ids (ING-xx, CON-xx,
 
 ## Architecture
 - **Clean Architecture, explicit use cases.** Domain (no dependencies) ← Application (use cases + the ports they own) ← Infrastructure (EF Core, Npgsql) ← Api (composition root). An architecture test fails if Domain or Application reference EF, Npgsql, CsvHelper or ASP.NET Core. No MediatR: a use case is a plain class with `ExecuteAsync`, registered explicitly.
-- **No generic repositories.** Each port exists for one concrete reason (a swappable implementation, an infrastructure-specific operation, or a read model). `AppDbContext` is `internal` to Infrastructure.
+- **Persistence access: `IApplicationDbContext`, no repositories.**
+  - Use cases query and write through `IApplicationDbContext` (Application layer), implemented by the internal `AppDbContext`; both it and `IUnitOfWork` resolve to the same scoped instance.
+  - *Accepted tradeoff:* Application depends on EF Core abstractions (`DbSet`, async LINQ). Rationale: per-entity repositories would mostly be thin wrappers that hide nothing. Guard: an architecture test allows `Microsoft.EntityFrameworkCore` but forbids Relational, Npgsql and Infrastructure in Application; Domain stays dependency-free.
+  - `DbSet<T>` is exposed only for workflow entities use cases write directly (`ImportJob`, `ImportRow`).
+  - Approved data, conflicts, the audit trail and reference data are exposed as untracked `IQueryable<T>`, so they are read-only by construction.
+  - There is no `SaveChanges` on the interface; `IUnitOfWork` commits.
+- **Specialized ports only where SQL-specific or invariant-critical work happens.** They are added in the phase that needs them; no speculative interfaces:
+  - `IImportStagingStore`: binary COPY.
+  - `IImportJobStore`: claim/lease with `SKIP LOCKED`.
+  - `IApprovedVoteStore`: atomic approved-data writes with conditional updates and audit events.
+- **Restricted-write safeguard (two layers).**
+  1. Compile time: no `DbSet` for restricted types in `IApplicationDbContext`.
+  2. Run time: `AppDbContext.SaveChanges` rejects any added, modified or deleted entity outside an allow-list (`ImportJob`, `ImportRow`; owned types judged by their owner) unless the write happens inside `AllowRestrictedWrites()`.
+
+  `AllowRestrictedWrites()` is `internal`, so only Infrastructure ports (the seeder, later `IApprovedVoteStore`) can open it. A restricted writer must flush inside its scope; anything still pending when the scope closes is rejected. The allow-list means a new entity type is restricted by default. The database triggers below remain the last line of defense.
 - **.NET 8 (`net8.0`)**, pinned by `global.json`.
 
 ## Data integrity

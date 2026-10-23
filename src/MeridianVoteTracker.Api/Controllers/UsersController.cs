@@ -1,6 +1,6 @@
 using MeridianVoteTracker.Application.Abstractions;
+using MeridianVoteTracker.Application.Users;
 using MeridianVoteTracker.Application.Users.ListUsers;
-using MeridianVoteTracker.Application.Users.Ports;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

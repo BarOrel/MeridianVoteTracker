@@ -1,3 +1,4 @@
+using MeridianVoteTracker.Application.Users.GetUser;
 using MeridianVoteTracker.Application.Users.ListUsers;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,6 +10,7 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddScoped<ListUsersUseCase>();
+        services.AddScoped<GetUserUseCase>();
         return services;
     }
 }

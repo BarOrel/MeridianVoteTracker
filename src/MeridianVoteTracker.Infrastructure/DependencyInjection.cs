@@ -1,8 +1,6 @@
 using MeridianVoteTracker.Application.Abstractions;
-using MeridianVoteTracker.Application.Users.Ports;
 using MeridianVoteTracker.Infrastructure.Persistence;
 using MeridianVoteTracker.Infrastructure.Persistence.Seed;
-using MeridianVoteTracker.Infrastructure.Persistence.Users;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -36,8 +34,10 @@ public static class DependencyInjection
 
         services.AddDbContext<AppDbContext>((sp, options) => ConfigureDbContext(options, sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton(TimeProvider.System);
+        // Same scoped instance behind both interfaces: use-case queries/changes and the unit of work
+        // share one change tracker and one transaction.
+        services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<AppDbContext>());
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
-        services.AddScoped<IUserDirectory, UserDirectory>();
         services.AddScoped<DatabaseInitializer>();
 
         services.AddHealthChecks()

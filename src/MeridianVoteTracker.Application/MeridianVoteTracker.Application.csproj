@@ -2,6 +2,9 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <!-- Accepted tradeoff: Application depends on EF Core abstractions (DbSet, IQueryable async operators),
+         never on a provider (Relational/Npgsql). See DECISIONS.md, "Persistence access". -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
   </ItemGroup>
 
   <ItemGroup>

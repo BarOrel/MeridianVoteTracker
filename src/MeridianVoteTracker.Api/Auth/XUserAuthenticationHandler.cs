@@ -1,6 +1,6 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
-using MeridianVoteTracker.Application.Users.Ports;
+using MeridianVoteTracker.Application.Users.GetUser;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 
@@ -16,7 +16,7 @@ public sealed class XUserAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,
     UrlEncoder encoder,
-    IUserDirectory users)
+    GetUserUseCase getUser)
     : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     public const string SchemeName = "XUser";
@@ -30,7 +30,7 @@ public sealed class XUserAuthenticationHandler(
             return AuthenticateResult.NoResult();
         }
 
-        var user = await users.FindAsync(userId, Context.RequestAborted);
+        var user = await getUser.ExecuteAsync(userId, Context.RequestAborted);
         if (user is null)
         {
             return AuthenticateResult.Fail($"Unknown user '{userId}'.");

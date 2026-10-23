@@ -37,6 +37,8 @@ internal sealed class DatabaseInitializer(AppDbContext db, IUnitOfWork unitOfWor
 
     private async Task<SeedResult> SeedAsync(CancellationToken cancellationToken)
     {
+        // Reference data is a restricted entity type; the seeder is one of its dedicated writers.
+        using var _ = db.AllowRestrictedWrites();
         var seedRows = ReadMemberStates();
         var existing = await db.MemberStates.Include(s => s.Periods).ToDictionaryAsync(s => s.Code, cancellationToken);
         int statesAdded = 0, periodsAdded = 0;
@@ -67,6 +69,9 @@ internal sealed class DatabaseInitializer(AppDbContext db, IUnitOfWork unitOfWor
         var missingUsers = SeedUsers.Where(u => !existingUserIds.Contains(u.Id)).ToList();
         db.Users.AddRange(missingUsers);
 
+        // Restricted writers flush inside their scope (and inside the open transaction);
+        // the unit of work still owns the commit.
+        await db.SaveChangesAsync(cancellationToken);
         return new SeedResult(statesAdded, periodsAdded, missingUsers.Count);
     }
 
