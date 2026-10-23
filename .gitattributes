@@ -1,0 +1,4 @@
+* text=auto
+# Assignment data files are test fixtures: BOM and CRLF are part of the input and must be preserved byte-for-byte.
+*.csv -text
+*.pdf binary
