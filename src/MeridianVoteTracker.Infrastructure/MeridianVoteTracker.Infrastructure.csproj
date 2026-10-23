@@ -3,11 +3,25 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Npgsql" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="EFCore.NamingConventions" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Persistence\Seed\member_states.csv" LogicalName="MeridianVoteTracker.Seed.member_states.csv" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\MeridianVoteTracker.Application\MeridianVoteTracker.Application.csproj" />
     <ProjectReference Include="..\MeridianVoteTracker.Domain\MeridianVoteTracker.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="MeridianVoteTracker.IntegrationTests" />
   </ItemGroup>
 
 </Project>

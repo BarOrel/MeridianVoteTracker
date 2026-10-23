@@ -16,6 +16,17 @@ docker compose up --build
 ```
 - API: http://localhost:8080 · Swagger UI: http://localhost:8080/swagger
 - Health: `/health/live` (process up), `/health/ready` (PostgreSQL reachable)
+- On start-up the API applies EF Core migrations and seeds member states and users (idempotent).
+
+## Users (simplified authentication)
+Send the header `X-User-Id` with one of the pre-defined users (Swagger UI: "Authorize" button):
+
+| Id | Role | Can |
+|---|---|---|
+| `dana`, `omar` | Analyst | upload, review, resolve conflicts, create snapshots |
+| `lena` | Admin | everything an analyst can, plus positions/weights and publishing |
+
+Roles are resolved server-side and enforced by API policies.
 
 ## Run the API locally (DB in Docker)
 ```bash
@@ -24,6 +35,12 @@ dotnet user-secrets --project src/MeridianVoteTracker.Api set "ConnectionStrings
 dotnet run --project src/MeridianVoteTracker.Api
 ```
 No connection strings or secrets are committed: Compose reads `.env` (git-ignored), local runs use user-secrets.
+
+## Database migrations
+```bash
+dotnet tool restore
+dotnet ef migrations add <Name> --project src/MeridianVoteTracker.Infrastructure --output-dir Persistence/Migrations
+```
 
 ## Tests
 ```bash
