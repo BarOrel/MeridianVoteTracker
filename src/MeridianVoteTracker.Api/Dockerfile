@@ -16,6 +16,8 @@ RUN dotnet publish src/MeridianVoteTracker.Api/MeridianVoteTracker.Api.csproj -c
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 COPY --from=build /app .
+# The import storage volume is initialized from this directory, so the non-root user can write to it.
+RUN mkdir -p /app/storage && chown app:app /app/storage
 ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8080
 USER app

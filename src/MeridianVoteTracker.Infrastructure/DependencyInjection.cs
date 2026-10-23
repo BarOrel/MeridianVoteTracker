@@ -1,10 +1,16 @@
 using MeridianVoteTracker.Application.Abstractions;
+using MeridianVoteTracker.Application.Imports;
+using MeridianVoteTracker.Application.Imports.Ports;
+using MeridianVoteTracker.Infrastructure.BackgroundJobs;
+using MeridianVoteTracker.Infrastructure.Imports;
+using MeridianVoteTracker.Infrastructure.Imports.Csv;
 using MeridianVoteTracker.Infrastructure.Persistence;
 using MeridianVoteTracker.Infrastructure.Persistence.Seed;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Npgsql;
 
 namespace MeridianVoteTracker.Infrastructure;
@@ -39,6 +45,20 @@ public static class DependencyInjection
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<AppDbContext>());
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddScoped<DatabaseInitializer>();
+
+        // Imports: format readers (add new formats here), storage, specialized persistence ports, worker.
+        services.AddSingleton<IImportFileReader, CsvImportFileReader>();
+        services.AddOptions<ImportStorageOptions>().BindConfiguration(ImportStorageOptions.SectionName);
+        services.AddSingleton<IImportFileStorage, LocalDiskImportFileStorage>();
+        services.AddScoped<IImportStagingStore, PostgresImportStagingStore>();
+        services.AddScoped<IImportJobStore, PostgresImportJobStore>();
+        services.AddOptions<ImportWorkerOptions>().BindConfiguration(ImportWorkerOptions.SectionName);
+        services.AddSingleton(sp =>
+        {
+            var worker = sp.GetRequiredService<IOptions<ImportWorkerOptions>>().Value;
+            return new ImportProcessingSettings(worker.BatchSize, worker.LeaseDuration, worker.RetryDelay);
+        });
+        services.AddHostedService<ImportWorker>();
 
         services.AddHealthChecks()
             .AddCheck<PostgresHealthCheck>("postgres", tags: [HealthCheckTags.Ready]);

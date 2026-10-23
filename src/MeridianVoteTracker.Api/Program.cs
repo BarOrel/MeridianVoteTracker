@@ -20,6 +20,7 @@ builder.Services
     .AddControllers(options => options.Filters.Add(new AuthorizeFilter()))
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddUniformProblemDetails();
+builder.Services.AddExceptionHandler<UseCaseExceptionHandler>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {

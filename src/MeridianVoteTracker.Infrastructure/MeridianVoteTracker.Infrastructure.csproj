@@ -3,6 +3,7 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Npgsql" />
+    <PackageReference Include="CsvHelper" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="EFCore.NamingConventions" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
@@ -22,6 +23,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="MeridianVoteTracker.IntegrationTests" />
+    <InternalsVisibleTo Include="MeridianVoteTracker.UnitTests" />
   </ItemGroup>
 
 </Project>

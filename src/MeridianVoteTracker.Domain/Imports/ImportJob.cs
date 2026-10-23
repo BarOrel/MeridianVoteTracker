@@ -33,6 +33,7 @@ public enum ImportPhase
 public sealed class ImportJob
 {
     public const int MaxAttempts = 3;
+    public const int MaxErrorLength = 4000;
 
     public Guid Id { get; private set; }
     public string OriginalFileName { get; private set; } = null!;
@@ -57,6 +58,12 @@ public sealed class ImportJob
     public string? Error { get; private set; }
 
     public bool IsFinalized => Status is ImportJobStatus.Completed or ImportJobStatus.CompletedWithIssues or ImportJobStatus.Failed;
+
+    public bool HasAttemptsLeft => Attempts < MaxAttempts;
+
+    /// <summary>True while <paramref name="workerId"/> owns the job in attempt <paramref name="attempt"/>.</summary>
+    public bool IsOwnedBy(string workerId, int attempt) =>
+        !IsFinalized && Status == ImportJobStatus.Processing && LeaseOwner == workerId && Attempts == attempt;
 
     private ImportJob() { }
 
@@ -141,9 +148,40 @@ public sealed class ImportJob
     {
         EnsureNotFinalized();
         Status = ImportJobStatus.Failed;
-        Error = error;
+        Error = Truncate(error);
         Finalize(now);
     }
+
+    /// <summary>
+    /// A transient failure (e.g. database unavailable): the error is visible to the user and the job
+    /// becomes claimable again at <paramref name="retryAt"/> (the expiry of a released lease).
+    /// </summary>
+    public void RecordFailedAttempt(string error, DateTimeOffset retryAt)
+    {
+        EnsureNotFinalized();
+        if (!HasAttemptsLeft)
+        {
+            throw new InvalidOperationException($"Import {Id} has no attempts left; fail it instead.");
+        }
+
+        Error = Truncate(error);
+        LeaseOwner = null;
+        LeaseExpiresAt = retryAt;
+    }
+
+    /// <summary>
+    /// Ends the worker's ownership after staging without scheduling a retry: the job stays Processing
+    /// in the Classifying phase with no lease, so it is not claimed again. Phase 2 stops here; the
+    /// classification engine (Phase 3) continues from this point instead of parking.
+    /// </summary>
+    public void ParkAwaitingClassification()
+    {
+        EnsurePhase(ImportPhase.Classifying);
+        LeaseOwner = null;
+        LeaseExpiresAt = null;
+    }
+
+    private static string Truncate(string error) => error.Length <= MaxErrorLength ? error : error[..MaxErrorLength];
 
     private void Finalize(DateTimeOffset now)
     {

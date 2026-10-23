@@ -73,6 +73,30 @@ Living document; each phase adds its decisions. Requirement ids (ING-xx, CON-xx,
 
   The first occurrence is classified on its merits; copies reference it (`duplicate_of_row_number`). Rows that differ in *meaning* after normalization are never duplicates; they are Contradictions.
 
+## Import pipeline (ING-01..05, ING-07, ING-13)
+- **Stages are separate classes with one job each:**
+  - `IImportFileStorage`: durable file.
+  - `IImportFileReader`: format syntax to `RawImportRecord`.
+  - `ImportRecordValidator`: row rules and recorded normalization.
+  - `IImportStagingStore`: bulk write.
+  - Classification against approved data (Phase 3) is not mixed into any of them.
+- **The `RawImportRecord` contract:** row number, original text, eight raw text fields or a structural error. It is the only thing that crosses from a reader to the rest of the pipeline, so a new format (Excel, JSON) is one new `IImportFileReader` plus a DI registration. Format is detected at upload (name + first bytes) and stored on the job, so retries use the same reader.
+- **Bad records never stop an import.** Readers yield malformed records (wrong column count, broken quoting, NUL) with a reason; values that would not fit their column (title, record length) are Invalid rows, not failed batches. Only a file that is unusable as a whole (missing header columns, missing stored file) fails the job, without retry.
+- **Bounded memory.**
+  - The file is streamed.
+  - Rows go to PostgreSQL in batches of 5,000 via binary COPY on the unit of work's connection, so each batch commits with the job's progress and lease heartbeat.
+  - Rows are never tracked by EF.
+  - Grouping by vote (rows are not contiguous, ING-03) happens later in SQL over the staged rows, not in memory.
+  - Measured on the 962,171-row historic file in Docker: ~17 s staging, API memory flat at ~110 MB (Workstation GC; Server GC reserved ~590 MB, hence the setting).
+- **Validation rules (row level).** Required fields, vote id format, positive session, ISO date only, known country, state was a member on the vote date, ballot exactly Y/N/A/X, `published_at` optional but ISO 8601 with offset if present, length limits. All problems of a row are reported; the first is its reason code.
+- **Background processing: a database-backed queue instead of a broker.** `import_jobs` is the queue.
+  - Claiming uses `FOR UPDATE SKIP LOCKED` in a short transaction that sets a lease (worker id + expiry).
+  - Every batch re-verifies ownership, and `attempts` is a concurrency token, so a worker that lost its lease cannot write.
+  - A crashed worker's job is claimed again when the lease expires; staging restarts from the file, deleting that job's staged rows.
+  - Transient failures are retried after 15 s × attempt, up to 3 attempts, with the error visible in the status; file-level problems fail immediately.
+  - *Lost vs. a broker:* no push delivery (2 s polling) and one process; acceptable for this load and keeps one durable store.
+- **Phase 2 boundary.** After staging, the job is parked (Processing / Classifying, no lease) and shown as `AwaitingClassification`. Phase 3 replaces the park with classification.
+
 ## Identity and authorization
 - **Simplified identity, as the brief allows.** The `X-User-Id` header carries a pre-defined user; the server looks up the user and role.
 - **Role policies are enforced by the API.**

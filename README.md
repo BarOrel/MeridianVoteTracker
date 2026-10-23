@@ -3,7 +3,10 @@
 Take-home assignment: ingestion, review and ranking of Meridian Assembly votes.
 ASP.NET Core 8 · PostgreSQL 16 · EF Core · Angular · Docker Compose.
 
-> Status: **Phase 0 — skeleton.** Solution layout, dependency rule, API host, Docker Compose and tests are in place. No domain features yet.
+> Status: **Phase 2 — import ingestion.** Upload (202) → durable storage → background worker → CSV parsing →
+> row validation/normalization → staging in PostgreSQL, with live progress. Classification against approved data
+> (new / unchanged / duplicate / contradiction / conflict) is Phase 3: staged imports currently stop at
+> `AwaitingClassification`. Design decisions: [DECISIONS.md](DECISIONS.md).
 
 ## Prerequisites
 - .NET SDK 8.0.4xx (pinned by `global.json`)
@@ -35,6 +38,15 @@ dotnet user-secrets --project src/MeridianVoteTracker.Api set "ConnectionStrings
 dotnet run --project src/MeridianVoteTracker.Api
 ```
 No connection strings or secrets are committed: Compose reads `.env` (git-ignored), local runs use user-secrets.
+
+## Importing a file
+```bash
+curl -H "X-User-Id: dana" -F "file=@AssignmentRequirements/assembly_export_2024_q1.csv" http://localhost:8080/api/imports
+# 202 Accepted + Location: /api/imports/{id}
+curl -H "X-User-Id: dana" http://localhost:8080/api/imports/{id}   # state, stagedRows, totalRows, invalidRows, error
+```
+Uploaded files are kept in the `importfiles` volume (`ImportStorage:RootPath`). Worker settings: `ImportWorker:*`
+(poll interval, batch size, lease duration, retry delay).
 
 ## Database migrations
 ```bash

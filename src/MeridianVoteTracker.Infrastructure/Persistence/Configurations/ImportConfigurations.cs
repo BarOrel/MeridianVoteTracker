@@ -25,7 +25,11 @@ internal sealed class ImportJobConfiguration : IEntityTypeConfiguration<ImportJo
         builder.Property(j => j.UploadedBy).HasMaxLength(32);
         builder.Property(j => j.CorrelationId).HasMaxLength(64);
         builder.Property(j => j.LeaseOwner).HasMaxLength(128);
-        builder.Property(j => j.Error).HasMaxLength(4000);
+        builder.Property(j => j.Error).HasMaxLength(ImportJob.MaxErrorLength);
+
+        // A worker whose lease was taken over (attempt incremented by another worker) can no longer write:
+        // UPDATE import_jobs ... WHERE id = @id AND attempts = @myAttempt.
+        builder.Property(j => j.Attempts).IsConcurrencyToken();
         builder.Ignore(j => j.IsFinalized);
 
         builder.HasIndex(j => new { j.Status, j.UploadedAt });
@@ -50,11 +54,11 @@ internal sealed class ImportRowConfiguration : IEntityTypeConfiguration<ImportRo
         builder.HasOne<ImportJob>().WithMany().HasForeignKey(r => r.ImportJobId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Conflict>().WithMany().HasForeignKey(r => r.ConflictId).OnDelete(DeleteBehavior.Restrict);
 
-        builder.Property(r => r.OriginalText).HasMaxLength(8000);
-        builder.Property(r => r.Title).HasMaxLength(512);
-        builder.Property(r => r.CountryName).HasMaxLength(256);
+        builder.Property(r => r.OriginalText).HasMaxLength(ImportRow.MaxOriginalTextLength);
+        builder.Property(r => r.Title).HasMaxLength(ImportRow.MaxTitleLength);
+        builder.Property(r => r.CountryName).HasMaxLength(ImportRow.MaxCountryNameLength);
         builder.Property(r => r.ReasonCode).HasMaxLength(64);
-        builder.Property(r => r.Message).HasMaxLength(1000);
+        builder.Property(r => r.Message).HasMaxLength(ImportRow.MaxMessageLength);
         // Field-mapped text[]: the domain exposes the notes read-only.
         builder.Ignore(r => r.NormalizationNotes);
         builder.PrimitiveCollection<List<string>>("_normalizationNotes").HasColumnName("normalization_notes").IsRequired();

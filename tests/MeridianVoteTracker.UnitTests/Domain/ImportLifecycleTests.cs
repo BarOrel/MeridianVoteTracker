@@ -71,6 +71,49 @@ public class ImportLifecycleTests
     }
 
     [Fact]
+    public void Failed_attempt_schedules_a_retry_and_keeps_the_error_visible()
+    {
+        var job = NewJob();
+        job.BeginAttempt("worker-1", T0, Lease);
+
+        job.RecordFailedAttempt("database unavailable", T0.AddSeconds(15));
+
+        Assert.Equal(ImportJobStatus.Processing, job.Status);
+        Assert.Null(job.LeaseOwner);
+        Assert.Equal(T0.AddSeconds(15), job.LeaseExpiresAt);
+        Assert.Equal("database unavailable", job.Error);
+        Assert.False(job.IsOwnedBy("worker-1", 1));
+
+        job.BeginAttempt("worker-1", T0.AddSeconds(16), Lease);
+        Assert.Equal(2, job.Attempts);
+    }
+
+    [Fact]
+    public void Staged_job_can_be_parked_without_a_lease_until_classification_exists()
+    {
+        var job = NewJob();
+        job.BeginAttempt("worker-1", T0, Lease);
+        job.CompleteStaging(10);
+
+        job.ParkAwaitingClassification();
+
+        Assert.Equal((ImportJobStatus.Processing, ImportPhase.Classifying), (job.Status, job.Phase));
+        Assert.Null(job.LeaseOwner);
+        Assert.Null(job.LeaseExpiresAt);
+    }
+
+    [Fact]
+    public void Ownership_requires_the_same_worker_and_attempt()
+    {
+        var job = NewJob();
+        job.BeginAttempt("worker-1", T0, Lease);
+        job.BeginAttempt("worker-2", T0.AddMinutes(6), Lease); // worker-1's lease expired
+
+        Assert.False(job.IsOwnedBy("worker-1", 1));
+        Assert.True(job.IsOwnedBy("worker-2", 2));
+    }
+
+    [Fact]
     public void Job_gives_up_after_max_attempts()
     {
         var job = NewJob();

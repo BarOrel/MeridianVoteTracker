@@ -23,11 +23,16 @@ services:
       dockerfile: src/MeridianVoteTracker.Api/Dockerfile
     environment:
       ConnectionStrings__Postgres: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      ImportStorage__RootPath: /app/storage
     ports:
       - "${API_PORT:-8080}:8080"
+    volumes:
+      # Uploaded files survive container restarts (the worker re-reads them on retry/resume).
+      - importfiles:/app/storage
     depends_on:
       db:
         condition: service_healthy
 
 volumes:
   pgdata:
+  importfiles:

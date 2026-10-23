@@ -19,6 +19,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\MeridianVoteTracker.Domain\MeridianVoteTracker.Domain.csproj" />
     <ProjectReference Include="..\..\src\MeridianVoteTracker.Application\MeridianVoteTracker.Application.csproj" />
+    <!-- Only for pure, I/O-free Infrastructure components such as the CSV reader (stream in, records out). -->
+    <ProjectReference Include="..\..\src\MeridianVoteTracker.Infrastructure\MeridianVoteTracker.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

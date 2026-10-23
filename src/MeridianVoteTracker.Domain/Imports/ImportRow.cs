@@ -57,6 +57,11 @@ public sealed record NormalizedImportRecord(
 /// </summary>
 public sealed class ImportRow
 {
+    public const int MaxOriginalTextLength = 8000;
+    public const int MaxMessageLength = 1000;
+    public const int MaxTitleLength = 512;
+    public const int MaxCountryNameLength = 256;
+
     private List<string> _normalizationNotes = [];
 
     public Guid ImportJobId { get; private set; }
