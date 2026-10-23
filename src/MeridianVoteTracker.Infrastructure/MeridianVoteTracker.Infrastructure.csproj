@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MeridianVoteTracker.Application\MeridianVoteTracker.Application.csproj" />
+    <ProjectReference Include="..\MeridianVoteTracker.Domain\MeridianVoteTracker.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
