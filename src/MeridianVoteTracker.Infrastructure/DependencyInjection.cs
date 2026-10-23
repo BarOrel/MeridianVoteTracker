@@ -1,11 +1,13 @@
 using MeridianVoteTracker.Application.Abstractions;
 using MeridianVoteTracker.Application.Imports;
 using MeridianVoteTracker.Application.Imports.Ports;
+using MeridianVoteTracker.Application.Votes.Ports;
 using MeridianVoteTracker.Infrastructure.BackgroundJobs;
 using MeridianVoteTracker.Infrastructure.Imports;
 using MeridianVoteTracker.Infrastructure.Imports.Csv;
 using MeridianVoteTracker.Infrastructure.Persistence;
 using MeridianVoteTracker.Infrastructure.Persistence.Seed;
+using MeridianVoteTracker.Infrastructure.Persistence.Votes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -52,11 +54,12 @@ public static class DependencyInjection
         services.AddSingleton<IImportFileStorage, LocalDiskImportFileStorage>();
         services.AddScoped<IImportStagingStore, PostgresImportStagingStore>();
         services.AddScoped<IImportJobStore, PostgresImportJobStore>();
+        services.AddScoped<IApprovedVoteStore, PostgresApprovedVoteStore>();
         services.AddOptions<ImportWorkerOptions>().BindConfiguration(ImportWorkerOptions.SectionName);
         services.AddSingleton(sp =>
         {
             var worker = sp.GetRequiredService<IOptions<ImportWorkerOptions>>().Value;
-            return new ImportProcessingSettings(worker.BatchSize, worker.LeaseDuration, worker.RetryDelay);
+            return new ImportProcessingSettings(worker.BatchSize, worker.LeaseDuration, worker.RetryDelay, worker.VotesPerClassificationBatch);
         });
         services.AddHostedService<ImportWorker>();
 

@@ -1,3 +1,4 @@
+using MeridianVoteTracker.Application.Imports.GetImportReport;
 using MeridianVoteTracker.Application.Imports.GetImportStatus;
 using MeridianVoteTracker.Application.Imports.Pipeline;
 using MeridianVoteTracker.Application.Imports.ProcessImport;
@@ -19,6 +20,8 @@ public static class DependencyInjection
         services.AddSingleton<ImportFileReaderResolver>();
         services.AddScoped<StartImportUseCase>();
         services.AddScoped<GetImportStatusUseCase>();
+        services.AddScoped<GetImportReportUseCase>();
+        services.AddScoped<ListImportRowsUseCase>();
         services.AddScoped<ClaimNextImportUseCase>();
         services.AddScoped<ProcessImportUseCase>();
         services.AddScoped<RecordImportFailureUseCase>();

@@ -11,7 +11,6 @@ public enum ImportProgressState
     Queued,
     Staging,
     RetryScheduled,
-    AwaitingClassification,
     Classifying,
     Completed,
     CompletedWithIssues,
@@ -65,7 +64,6 @@ public sealed class GetImportStatusUseCase(IApplicationDbContext db)
         ImportJobStatus.CompletedWithIssues => ImportProgressState.CompletedWithIssues,
         ImportJobStatus.Failed => ImportProgressState.Failed,
         _ when job.LeaseOwner is null && job.LeaseExpiresAt is not null => ImportProgressState.RetryScheduled,
-        _ when job.Phase == ImportPhase.Classifying && job.LeaseOwner is null => ImportProgressState.AwaitingClassification,
         _ when job.Phase == ImportPhase.Classifying => ImportProgressState.Classifying,
         _ => ImportProgressState.Staging,
     };

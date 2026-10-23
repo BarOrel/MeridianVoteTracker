@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MeridianVoteTracker.Api.Auth;
+using MeridianVoteTracker.Application.Imports.GetImportReport;
 using MeridianVoteTracker.Application.Imports.GetImportStatus;
 
 namespace MeridianVoteTracker.IntegrationTests.Infrastructure;
@@ -14,8 +15,7 @@ internal sealed class ImportTestClient(ApiFactory factory, string userId = "dana
 
     private static readonly ImportProgressState[] Settled =
     [
-        ImportProgressState.AwaitingClassification, ImportProgressState.Completed,
-        ImportProgressState.CompletedWithIssues, ImportProgressState.Failed,
+        ImportProgressState.Completed, ImportProgressState.CompletedWithIssues, ImportProgressState.Failed,
     ];
 
     private readonly HttpClient _client = CreateClient(factory, userId);
@@ -39,6 +39,12 @@ internal sealed class ImportTestClient(ApiFactory factory, string userId = "dana
 
     public async Task<ImportStatusDto> GetStatusAsync(Guid id) =>
         (await _client.GetFromJsonAsync<ImportStatusDto>($"/api/imports/{id}", Json))!;
+
+    public async Task<ImportReportDto> GetReportAsync(Guid id) =>
+        (await _client.GetFromJsonAsync<ImportReportDto>($"/api/imports/{id}/report", Json))!;
+
+    public async Task<ImportRowsPageDto> GetRowsAsync(Guid id, string query = "") =>
+        (await _client.GetFromJsonAsync<ImportRowsPageDto>($"/api/imports/{id}/rows{query}", Json))!;
 
     public async Task<ImportStatusDto> WaitUntilSettledAsync(Guid id, TimeSpan? timeout = null)
     {

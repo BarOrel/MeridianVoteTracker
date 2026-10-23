@@ -22,7 +22,7 @@ public class ArchitectureTests
     ];
 
     /// <summary>Entity types use cases may write directly; everything else needs a dedicated port.</summary>
-    private static readonly Type[] OrdinaryWritableTypes = [typeof(ImportJob), typeof(ImportRow)];
+    private static readonly Type[] OrdinaryWritableTypes = [typeof(ImportJob), typeof(ImportRow), typeof(ImportVoteOutcome)];
 
     [Fact]
     public void Domain_references_no_other_project_and_no_persistence_framework()

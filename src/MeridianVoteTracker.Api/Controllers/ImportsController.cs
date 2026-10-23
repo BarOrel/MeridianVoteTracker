@@ -1,6 +1,8 @@
 using MeridianVoteTracker.Api.Auth;
+using MeridianVoteTracker.Application.Imports.GetImportReport;
 using MeridianVoteTracker.Application.Imports.GetImportStatus;
 using MeridianVoteTracker.Application.Imports.StartImport;
+using MeridianVoteTracker.Domain.Imports;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -44,4 +46,29 @@ public sealed class ImportsController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public Task<ImportStatusDto> GetStatus(Guid id, [FromServices] GetImportStatusUseCase getStatus, CancellationToken cancellationToken) =>
         getStatus.ExecuteAsync(id, cancellationToken);
+
+    /// <summary>Persisted import report (ING-14/15): totals per classification, conflicts, what happened to each vote.</summary>
+    [HttpGet("{id:guid}/report")]
+    [ProducesResponseType<ImportReportDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public Task<ImportReportDto> GetReport(Guid id, [FromServices] GetImportReportUseCase getReport, CancellationToken cancellationToken) =>
+        getReport.ExecuteAsync(id, cancellationToken);
+
+    /// <summary>
+    /// Row-level results with row number, reason and original value. Without <paramref name="classification"/>:
+    /// the rows that were not stored as-is (duplicates, invalid, contradictions, conflicts).
+    /// </summary>
+    [HttpGet("{id:guid}/rows")]
+    [ProducesResponseType<ImportRowsPageDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public Task<ImportRowsPageDto> GetRows(
+        Guid id,
+        [FromQuery] ImportClassification? classification,
+        [FromQuery] bool normalizedOnly,
+        [FromServices] ListImportRowsUseCase listRows,
+        CancellationToken cancellationToken,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 100) =>
+        listRows.ExecuteAsync(new ImportRowsQuery(id, classification, normalizedOnly, page, pageSize), cancellationToken);
 }

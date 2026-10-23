@@ -16,6 +16,7 @@ public sealed class ImportWorkerOptions
     public int BatchSize { get; set; } = ImportProcessingSettings.Default.BatchSize;
     public TimeSpan LeaseDuration { get; set; } = ImportProcessingSettings.Default.LeaseDuration;
     public TimeSpan RetryDelay { get; set; } = ImportProcessingSettings.Default.RetryDelay;
+    public int VotesPerClassificationBatch { get; set; } = ImportProcessingSettings.Default.VotesPerClassificationBatch;
 }
 
 /// <summary>

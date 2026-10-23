@@ -15,6 +15,9 @@ public sealed class MembershipRegistry
 
     public bool Exists(CountryCode code) => _states.ContainsKey(code);
 
+    /// <summary>Reference name from member_states.csv, used to report name variants (ING-11).</summary>
+    public string? NameOf(CountryCode code) => _states.TryGetValue(code, out var state) ? state.Name : null;
+
     public bool WasMemberOn(CountryCode code, DateOnly date) =>
         _states.TryGetValue(code, out var state) && state.WasMemberOn(date);
 }

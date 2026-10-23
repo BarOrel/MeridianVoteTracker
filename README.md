@@ -3,10 +3,9 @@
 Take-home assignment: ingestion, review and ranking of Meridian Assembly votes.
 ASP.NET Core 8 · PostgreSQL 16 · EF Core · Angular · Docker Compose.
 
-> Status: **Phase 2 — import ingestion.** Upload (202) → durable storage → background worker → CSV parsing →
-> row validation/normalization → staging in PostgreSQL, with live progress. Classification against approved data
-> (new / unchanged / duplicate / contradiction / conflict) is Phase 3: staged imports currently stop at
-> `AwaitingClassification`. Design decisions: [DECISIONS.md](DECISIONS.md).
+> Status: **Phase 3 — classification and import reports.** Upload (202) → background staging → per-vote
+> classification against approved data (new / unchanged / duplicate / invalid / contradiction / conflict) →
+> persisted report. Conflict resolution, votes, snapshots and the UI are next. Design decisions: [DECISIONS.md](DECISIONS.md).
 
 ## Prerequisites
 - .NET SDK 8.0.4xx (pinned by `global.json`)
@@ -43,7 +42,9 @@ No connection strings or secrets are committed: Compose reads `.env` (git-ignore
 ```bash
 curl -H "X-User-Id: dana" -F "file=@AssignmentRequirements/assembly_export_2024_q1.csv" http://localhost:8080/api/imports
 # 202 Accepted + Location: /api/imports/{id}
-curl -H "X-User-Id: dana" http://localhost:8080/api/imports/{id}   # state, stagedRows, totalRows, invalidRows, error
+curl -H "X-User-Id: dana" http://localhost:8080/api/imports/{id}          # state and progress
+curl -H "X-User-Id: dana" http://localhost:8080/api/imports/{id}/report   # totals, conflicts, per-vote outcomes
+curl -H "X-User-Id: dana" "http://localhost:8080/api/imports/{id}/rows?classification=Invalid&page=1&pageSize=100"
 ```
 Uploaded files are kept in the `importfiles` volume (`ImportStorage:RootPath`). Worker settings: `ImportWorker:*`
 (poll interval, batch size, lease duration, retry delay).

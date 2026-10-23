@@ -29,6 +29,7 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("ImportWorker:Enabled", ImportWorkerEnabled ? "true" : "false");
         builder.UseSetting("ImportWorker:PollInterval", "00:00:00.200");
         builder.UseSetting("ImportWorker:BatchSize", "1000"); // several batches even for small files
+        builder.UseSetting("ImportWorker:VotesPerClassificationBatch", "50");
     }
 
     public Task InitializeAsync() => _postgres.StartAsync();
@@ -50,6 +51,12 @@ public sealed class ImportApiFactory : ApiFactory
     protected override bool ImportWorkerEnabled => true;
 }
 
+/// <summary>Own database for the q1 → rev2 → rev2 scenario, whose expected numbers assume no prior approved data.</summary>
+public sealed class RealFilesApiFactory : ApiFactory
+{
+    protected override bool ImportWorkerEnabled => true;
+}
+
 [CollectionDefinition(Name)]
 public sealed class ApiCollection : ICollectionFixture<ApiFactory>
 {
@@ -60,4 +67,10 @@ public sealed class ApiCollection : ICollectionFixture<ApiFactory>
 public sealed class ImportCollection : ICollectionFixture<ImportApiFactory>
 {
     public const string Name = "imports";
+}
+
+[CollectionDefinition(Name)]
+public sealed class RealFilesCollection : ICollectionFixture<RealFilesApiFactory>
+{
+    public const string Name = "real-files";
 }

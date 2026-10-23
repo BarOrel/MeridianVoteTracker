@@ -169,18 +169,6 @@ public sealed class ImportJob
         LeaseExpiresAt = retryAt;
     }
 
-    /// <summary>
-    /// Ends the worker's ownership after staging without scheduling a retry: the job stays Processing
-    /// in the Classifying phase with no lease, so it is not claimed again. Phase 2 stops here; the
-    /// classification engine (Phase 3) continues from this point instead of parking.
-    /// </summary>
-    public void ParkAwaitingClassification()
-    {
-        EnsurePhase(ImportPhase.Classifying);
-        LeaseOwner = null;
-        LeaseExpiresAt = null;
-    }
-
     private static string Truncate(string error) => error.Length <= MaxErrorLength ? error : error[..MaxErrorLength];
 
     private void Finalize(DateTimeOffset now)

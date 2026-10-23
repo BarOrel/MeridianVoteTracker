@@ -23,7 +23,7 @@ namespace MeridianVoteTracker.Infrastructure.Persistence;
 internal sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options), IApplicationDbContext
 {
     /// <summary>Allow-list (not deny-list): a newly added entity type is restricted until consciously opened up.</summary>
-    private static readonly HashSet<Type> OrdinaryWritableTypes = [typeof(ImportJob), typeof(ImportRow)];
+    private static readonly HashSet<Type> OrdinaryWritableTypes = [typeof(ImportJob), typeof(ImportRow), typeof(ImportVoteOutcome)];
 
     private int _restrictedWriteScopes;
 
@@ -35,6 +35,7 @@ internal sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbC
     public DbSet<VoteHistoryEvent> VoteHistoryEvents => Set<VoteHistoryEvent>();
     public DbSet<ImportJob> ImportJobs => Set<ImportJob>();
     public DbSet<ImportRow> ImportRows => Set<ImportRow>();
+    public DbSet<ImportVoteOutcome> ImportVoteOutcomes => Set<ImportVoteOutcome>();
 
     // Read-only, untracked views for use cases: entities loaded here can never be persisted by accident.
     IQueryable<Vote> IApplicationDbContext.Votes => Votes.AsNoTracking();
@@ -78,6 +79,7 @@ internal sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbC
         configurationBuilder.Properties<ImportPhase>().HaveConversion<string>().HaveMaxLength(16);
         configurationBuilder.Properties<ImportClassification>().HaveConversion<string>().HaveMaxLength(16);
         configurationBuilder.Properties<DuplicateKind>().HaveConversion<string>().HaveMaxLength(32);
+        configurationBuilder.Properties<VoteImportOutcome>().HaveConversion<string>().HaveMaxLength(32);
     }
 
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)

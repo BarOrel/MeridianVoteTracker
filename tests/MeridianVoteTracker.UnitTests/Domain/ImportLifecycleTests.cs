@@ -89,20 +89,6 @@ public class ImportLifecycleTests
     }
 
     [Fact]
-    public void Staged_job_can_be_parked_without_a_lease_until_classification_exists()
-    {
-        var job = NewJob();
-        job.BeginAttempt("worker-1", T0, Lease);
-        job.CompleteStaging(10);
-
-        job.ParkAwaitingClassification();
-
-        Assert.Equal((ImportJobStatus.Processing, ImportPhase.Classifying), (job.Status, job.Phase));
-        Assert.Null(job.LeaseOwner);
-        Assert.Null(job.LeaseExpiresAt);
-    }
-
-    [Fact]
     public void Ownership_requires_the_same_worker_and_attempt()
     {
         var job = NewJob();

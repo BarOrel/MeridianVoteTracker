@@ -13,7 +13,7 @@ namespace MeridianVoteTracker.Application.Abstractions;
 /// repository per entity. Two tiers:
 /// <list type="bullet">
 /// <item><b>Writable</b> (<see cref="DbSet{TEntity}"/>): workflow data use cases create and update
-/// directly: import jobs and import rows.</item>
+/// directly: import jobs, import rows and per-vote import outcomes.</item>
 /// <item><b>Read-only</b> (<see cref="IQueryable{T}"/>, not tracked): approved data, conflicts, audit
 /// trail and reference data. A use case cannot add, remove or persist changes to these through this
 /// interface. Changes go through specialized ports (e.g. IApprovedVoteStore) that enforce the
@@ -27,6 +27,8 @@ public interface IApplicationDbContext
     DbSet<ImportJob> ImportJobs { get; }
 
     DbSet<ImportRow> ImportRows { get; }
+
+    DbSet<ImportVoteOutcome> ImportVoteOutcomes { get; }
 
     IQueryable<Vote> Votes { get; }
 

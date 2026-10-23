@@ -64,7 +64,7 @@ public class ImportProcessingTests(ImportApiFactory factory)
 
         var status = await _dana.UploadAndWaitAsync("historic_sample.csv", Encoding.UTF8.GetBytes(sample.ToString()), TimeSpan.FromMinutes(2));
 
-        Assert.Equal(ImportProgressState.AwaitingClassification, status.State);
+        Assert.Equal(ImportProgressState.CompletedWithIssues, status.State);
         Assert.Equal(sampled, status.TotalRows);
         Assert.Equal(HistoricProblemLines.Count, problemTexts.Count);
 
@@ -79,8 +79,11 @@ public class ImportProcessingTests(ImportApiFactory factory)
         }
 
         Assert.Equal(sampled, await scope.Db.ImportRows.CountAsync(r => r.ImportJobId == status.Id));
-        var validRows = await scope.Db.ImportRows.CountAsync(r => r.ImportJobId == status.Id && r.Classification == null);
-        Assert.Equal(sampled - invalid.Count, validRows);
+        Assert.Equal(0, await scope.Db.ImportRows.CountAsync(r => r.ImportJobId == status.Id && r.Classification == null));
+
+        // A 1-in-50 sample has ~3 rows per vote: every valid row is New, except rare same-file duplicates.
+        var stored = await scope.Db.ImportRows.CountAsync(r => r.ImportJobId == status.Id && r.Classification == ImportClassification.New);
+        Assert.InRange(stored, sampled - invalid.Count - 5, sampled - invalid.Count);
     }
 
     [Fact]
@@ -97,7 +100,7 @@ public class ImportProcessingTests(ImportApiFactory factory)
 
         var status = await _dana.WaitUntilSettledAsync(job.Id);
 
-        Assert.Equal(ImportProgressState.AwaitingClassification, status.State);
+        Assert.Equal(ImportProgressState.Completed, status.State);
         Assert.Equal(2, status.Attempts);
         Assert.Equal(2500, status.TotalRows);
         Assert.Equal(0, status.InvalidRows); // the crashed attempt's leftovers were removed
@@ -130,7 +133,7 @@ public class ImportProcessingTests(ImportApiFactory factory)
         }
 
         var status = await _dana.GetStatusAsync(job.Id);
-        Assert.Equal((ImportProgressState.AwaitingClassification, 1500), (status.State, status.TotalRows!.Value));
+        Assert.Equal((ImportProgressState.Completed, 1500), (status.State, status.TotalRows!.Value));
         Assert.Equal(1500, await CountRowsAsync(job.Id));
     }
 
@@ -176,13 +179,17 @@ public class ImportProcessingTests(ImportApiFactory factory)
         return await scope.Db.ImportRows.CountAsync(r => r.ImportJobId == jobId);
     }
 
-    private static byte[] ValidCsv(int rows)
+    private static int _uniqueYear = 3000;
+
+    /// <summary>Five states per vote; vote ids are unique per call, so tests sharing a database do not interact.</summary>
+    internal static byte[] ValidCsv(int rows, string ballot = "Y")
     {
         var codes = new[] { "FRA", "BRA", "JPN", "DEU", "IND" };
+        var year = Interlocked.Increment(ref _uniqueYear);
         var csv = new StringBuilder(Header).Append('\n');
         for (var i = 0; i < rows; i++)
         {
-            csv.Append($"MA/2099/{i / 5 + 1},79,2024-01-11,Test vote,{codes[i % 5]},Name,Y,2024-04-02T09:00:00Z\n");
+            csv.Append($"MA/{year}/{i / 5 + 1},79,2024-01-11,Test vote,{codes[i % 5]},Name,{ballot},2024-04-02T09:00:00Z\n");
         }
 
         return Encoding.UTF8.GetBytes(csv.ToString());

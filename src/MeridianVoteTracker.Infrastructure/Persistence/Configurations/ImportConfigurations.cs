@@ -1,5 +1,6 @@
 using MeridianVoteTracker.Domain.Conflicts;
 using MeridianVoteTracker.Domain.Imports;
+using MeridianVoteTracker.Domain.Votes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -70,5 +71,25 @@ internal sealed class ImportRowConfiguration : IEntityTypeConfiguration<ImportRo
         // the report filters by classification.
         builder.HasIndex(r => new { r.ImportJobId, r.AssemblyVoteId });
         builder.HasIndex(r => new { r.ImportJobId, r.Classification });
+    }
+}
+
+internal sealed class ImportVoteOutcomeConfiguration : IEntityTypeConfiguration<ImportVoteOutcome>
+{
+    public void Configure(EntityTypeBuilder<ImportVoteOutcome> builder)
+    {
+        // Insert-only: written in the classification batch transaction, then never changed (triggers).
+        builder.ToTable("import_vote_outcomes", t =>
+        {
+            t.HasCheckConstraint("ck_import_vote_outcomes_outcome",
+                "outcome IN ('NewVote', 'CountriesAdded', 'ConflictsDetected', 'NoChange', 'BlockedByContradiction')");
+            t.HasCheckConstraint("ck_import_vote_outcomes_counts",
+                "new_rows >= 0 AND unchanged_rows >= 0 AND duplicate_rows >= 0 AND contradiction_rows >= 0 AND conflict_rows >= 0 AND conflicts_created >= 0");
+        });
+        builder.HasKey(o => new { o.ImportJobId, o.AssemblyVoteId });
+        builder.HasOne<ImportJob>().WithMany().HasForeignKey(o => o.ImportJobId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Vote>().WithMany().HasForeignKey(o => o.VoteId).OnDelete(DeleteBehavior.Restrict);
+        builder.Ignore(o => o.Notes);
+        builder.PrimitiveCollection<List<string>>("_notes").HasColumnName("notes").IsRequired();
     }
 }

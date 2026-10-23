@@ -71,6 +71,61 @@ internal sealed class PostgresImportStagingStore(AppDbContext db) : IImportStagi
         await writer.CompleteAsync(cancellationToken);
     }
 
+    public async Task SaveClassificationsAsync(Guid importJobId, IReadOnlyList<ImportRow> rows, CancellationToken cancellationToken)
+    {
+        EnsureTransaction();
+        if (rows.Count == 0)
+        {
+            return;
+        }
+
+        if (rows.Any(r => r.ImportJobId != importJobId || r.Classification is null))
+        {
+            throw new ArgumentException("Every row must belong to the import and carry a classification.", nameof(rows));
+        }
+
+        var connection = (NpgsqlConnection)db.Database.GetDbConnection();
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TEMP TABLE row_classification (
+                row_number integer PRIMARY KEY, classification varchar(16), reason_code varchar(64), message varchar(1000),
+                duplicate_of_row_number integer, duplicate_kind varchar(32), conflict_id uuid
+            ) ON COMMIT DROP
+            """, cancellationToken);
+
+        await using (var writer = await connection.BeginBinaryImportAsync(
+            "COPY row_classification (row_number, classification, reason_code, message, duplicate_of_row_number, duplicate_kind, conflict_id) FROM STDIN (FORMAT BINARY)",
+            cancellationToken))
+        {
+            foreach (var row in rows)
+            {
+                await writer.StartRowAsync(cancellationToken);
+                await writer.WriteAsync(row.RowNumber, NpgsqlDbType.Integer, cancellationToken);
+                await writer.WriteAsync(row.Classification!.Value.ToString(), NpgsqlDbType.Varchar, cancellationToken);
+                await Write(writer, row.ReasonCode, NpgsqlDbType.Varchar, cancellationToken);
+                await Write(writer, row.Message, NpgsqlDbType.Varchar, cancellationToken);
+                await Write(writer, row.DuplicateOfRowNumber, NpgsqlDbType.Integer, cancellationToken);
+                await Write(writer, row.DuplicateKind?.ToString(), NpgsqlDbType.Varchar, cancellationToken);
+                await Write(writer, row.ConflictId, NpgsqlDbType.Uuid, cancellationToken);
+            }
+
+            await writer.CompleteAsync(cancellationToken);
+        }
+
+        // Only still-unclassified rows are updated: a classification is written exactly once.
+        var updated = await db.Database.ExecuteSqlRawAsync("""
+            UPDATE import_rows AS r
+            SET classification = c.classification, reason_code = c.reason_code, message = c.message,
+                duplicate_of_row_number = c.duplicate_of_row_number, duplicate_kind = c.duplicate_kind, conflict_id = c.conflict_id
+            FROM row_classification AS c
+            WHERE r.import_job_id = @job AND r.row_number = c.row_number AND r.classification IS NULL
+            """, [new NpgsqlParameter("job", importJobId)], cancellationToken);
+        if (updated != rows.Count)
+        {
+            throw new InvalidOperationException(
+                $"Expected to classify {rows.Count} rows of import {importJobId} but {updated} were unclassified; the batch is rolled back.");
+        }
+    }
+
     private static Task WriteText(NpgsqlBinaryImporter writer, string? value, CancellationToken cancellationToken) =>
         Write(writer, value, NpgsqlDbType.Text, cancellationToken);
 

@@ -502,6 +502,70 @@ namespace MeridianVoteTracker.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("MeridianVoteTracker.Domain.Imports.ImportVoteOutcome", b =>
+                {
+                    b.Property<Guid>("ImportJobId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("import_job_id");
+
+                    b.Property<string>("AssemblyVoteId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("assembly_vote_id");
+
+                    b.Property<int>("ConflictRows")
+                        .HasColumnType("integer")
+                        .HasColumnName("conflict_rows");
+
+                    b.Property<int>("ConflictsCreated")
+                        .HasColumnType("integer")
+                        .HasColumnName("conflicts_created");
+
+                    b.Property<int>("ContradictionRows")
+                        .HasColumnType("integer")
+                        .HasColumnName("contradiction_rows");
+
+                    b.Property<int>("DuplicateRows")
+                        .HasColumnType("integer")
+                        .HasColumnName("duplicate_rows");
+
+                    b.Property<int>("NewRows")
+                        .HasColumnType("integer")
+                        .HasColumnName("new_rows");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("outcome");
+
+                    b.Property<int>("UnchangedRows")
+                        .HasColumnType("integer")
+                        .HasColumnName("unchanged_rows");
+
+                    b.Property<int?>("VoteId")
+                        .HasColumnType("integer")
+                        .HasColumnName("vote_id");
+
+                    b.Property<List<string>>("_notes")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("notes");
+
+                    b.HasKey("ImportJobId", "AssemblyVoteId")
+                        .HasName("pk_import_vote_outcomes");
+
+                    b.HasIndex("VoteId")
+                        .HasDatabaseName("ix_import_vote_outcomes_vote_id");
+
+                    b.ToTable("import_vote_outcomes", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_import_vote_outcomes_counts", "new_rows >= 0 AND unchanged_rows >= 0 AND duplicate_rows >= 0 AND contradiction_rows >= 0 AND conflict_rows >= 0 AND conflicts_created >= 0");
+
+                            t.HasCheckConstraint("ck_import_vote_outcomes_outcome", "outcome IN ('NewVote', 'CountriesAdded', 'ConflictsDetected', 'NoChange', 'BlockedByContradiction')");
+                        });
+                });
+
             modelBuilder.Entity("MeridianVoteTracker.Domain.MemberStates.MemberState", b =>
                 {
                     b.Property<string>("Code")
@@ -772,6 +836,22 @@ namespace MeridianVoteTracker.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_import_rows_import_jobs_import_job_id");
+                });
+
+            modelBuilder.Entity("MeridianVoteTracker.Domain.Imports.ImportVoteOutcome", b =>
+                {
+                    b.HasOne("MeridianVoteTracker.Domain.Imports.ImportJob", null)
+                        .WithMany()
+                        .HasForeignKey("ImportJobId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_import_vote_outcomes_import_jobs_import_job_id");
+
+                    b.HasOne("MeridianVoteTracker.Domain.Votes.Vote", null)
+                        .WithMany()
+                        .HasForeignKey("VoteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_import_vote_outcomes_votes_vote_id");
                 });
 
             modelBuilder.Entity("MeridianVoteTracker.Domain.MemberStates.MembershipPeriod", b =>

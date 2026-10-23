@@ -22,7 +22,7 @@ public class ImportUploadTests(ImportApiFactory factory)
 
         var status = await _dana.UploadAndWaitAsync("assembly_export_2024_q1.csv", bytes);
 
-        Assert.Equal(ImportProgressState.AwaitingClassification, status.State);
+        Assert.Equal(ImportProgressState.CompletedWithIssues, status.State);
         Assert.Equal((5896, 5896, 11), (status.TotalRows!.Value, status.StagedRows, status.InvalidRows));
         Assert.Equal("dana", status.UploadedBy);
         Assert.Equal(bytes.Length, status.SizeBytes);
@@ -44,13 +44,14 @@ public class ImportUploadTests(ImportApiFactory factory)
 
         // Normalized, not rejected, and the normalization is visible.
         var deu = rows[2594];
-        Assert.Null(deu.Classification);
+        Assert.Equal(ImportClassification.New, deu.Classification);
         Assert.Equal(("deu", CountryCode.Create("DEU")), (deu.RawCountryCode, deu.CountryCode!.Value));
         Assert.Equal(["country_code: 'deu' → 'DEU' (uppercased)"], deu.NormalizationNotes);
 
-        // Exact duplicates and contradictions are row-valid; they are classified in Phase 3.
-        Assert.Null(rows[1045].Classification);
+        // Exact duplicates are row-valid; classification marks them and points to the first occurrence.
+        Assert.Equal((ImportClassification.Duplicate, DuplicateKind.Exact, 896), (rows[1045].Classification, rows[1045].DuplicateKind!.Value, rows[1045].DuplicateOfRowNumber!.Value));
         Assert.Equal(rows[896].OriginalText, rows[1045].OriginalText);
+        Assert.DoesNotContain(rows.Values, r => r.Classification is null);
     }
 
     [Fact]

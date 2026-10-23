@@ -95,7 +95,30 @@ Living document; each phase adds its decisions. Requirement ids (ING-xx, CON-xx,
   - A crashed worker's job is claimed again when the lease expires; staging restarts from the file, deleting that job's staged rows.
   - Transient failures are retried after 15 s × attempt, up to 3 attempts, with the error visible in the status; file-level problems fail immediately.
   - *Lost vs. a broker:* no push delivery (2 s polling) and one process; acceptable for this load and keeps one durable store.
-- **Phase 2 boundary.** After staging, the job is parked (Processing / Classifying, no lease) and shown as `AwaitingClassification`. Phase 3 replaces the park with classification.
+- **Classification (Phase 3).**
+  - Staged rows are grouped by vote in SQL (`DISTINCT assembly_vote_id … WHERE classification IS NULL`), 200 votes per transaction. File order is irrelevant (ING-03), and the same query is the resume point after a crash: a vote is either fully classified (committed) or untouched.
+  - One batch transaction contains:
+    - per-vote advisory locks;
+    - reads of the current approved state;
+    - the pure `VoteImportClassifier`;
+    - inserts of new votes, country votes, conflicts and history events through `IApprovedVoteStore`;
+    - the row classifications (COPY to a temp table plus `UPDATE … WHERE classification IS NULL`; a row-count mismatch rolls the batch back);
+    - the per-vote outcomes and the job's progress.
+  - The job is completed in a separate, final transaction, only after verifying that no unclassified row remains.
+- **Rule order per vote** (rows in file order; first occurrence wins):
+  1. Exact duplicate (all raw fields equal), then duplicate after normalization (same vote details, state and ballot; a different country *name* alone is a note, not a difference).
+  2. Rows disagreeing on session/date/title: the whole vote is a Contradiction and nothing of it is stored. Choosing the majority would be a silent fix.
+  3. A state with different ballots in one file: Contradiction, neither stored.
+  4. Against approved data: New, Unchanged or Conflict; missing states of an existing vote are New (ING-10).
+  5. Vote details different from the approved vote open metadata conflicts.
+- **Conflict dedupe (ING-12).** A pending conflict with the same target and proposed value is linked, not reopened. A proposal already *rejected* against the same approved value and revision is linked to that rejection and not reopened; if the approved value changed since, it is a new conflict. The partial unique indexes back this up under concurrency.
+- **Imports never update approved data.** `IApprovedVoteStore.SaveImportResultsAsync` only inserts. Concurrent imports of the same vote are serialized by `pg_advisory_xact_lock` per vote (taken in sorted order in one statement: no deadlocks), so the second import sees the first one's values. Tested with two concurrent imports of the same file and of the same correction.
+- **Report** (persisted, ING-14/15). Derived from `import_rows` and `import_vote_outcomes`, both frozen by triggers once the job is finalized.
+  - Totals per classification; exact vs. after-normalization duplicates; normalized rows.
+  - Conflicts created by this import (ballot / metadata), and rows linked to already pending or previously rejected conflicts.
+  - Per vote: outcome, counts, notes such as name variants or metadata conflicts.
+  - Paged problem rows with row number, reason and original text.
+- **Measured (Docker).** The historic file classified in ~80 s (962,109 new values, 6,480 votes) at ~200–240 MB; re-importing it took ~52 s and changed nothing.
 
 ## Identity and authorization
 - **Simplified identity, as the brief allows.** The `X-User-Id` header carries a pre-defined user; the server looks up the user and role.
