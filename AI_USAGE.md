@@ -24,5 +24,5 @@
 ## What I checked myself
 - The classification rules against the brief's worked example (§7.2) and against the real files.
 - That every interface has a concrete reason to exist.
-- The 409 behaviour with two users in two browsers.
+- Conflict resolution and the HTTP 409 behaviour (a second or concurrent decision on the same conflict), verified with automated integration tests and HTTP requests against the running stack, not manually in two browsers.
 - That the published snapshot does not change after a correction.
