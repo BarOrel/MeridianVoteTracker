@@ -24,7 +24,7 @@ public sealed class Snapshot
     [
         "Score = 100 × (sum of weights where the ballot matched the Institute's position) ÷ (sum of weights of counted votes).",
         "Only YES and NO ballots are counted. ABSTAIN and ABSENT are not counted (neither numerator nor denominator).",
-        "Votes held while a state was not a member have no ballot for it and are not counted.",
+        "A ballot counts only if the state was a member on the vote's approved date (imports reject non-member ballots; after an accepted date correction an existing ballot can fall outside membership and is then not counted).",
         "A state with no counted vote in the snapshot has no score (n/a) and is not ranked.",
         "Ranking: higher score first; equal scores share a rank (1, 2, 2, 4). Scores are rounded to one decimal.",
         "Every selected vote must have a position and weight; a vote without one blocks creation (POS-04).",

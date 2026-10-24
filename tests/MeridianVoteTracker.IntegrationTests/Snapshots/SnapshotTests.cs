@@ -76,6 +76,43 @@ public class SnapshotTests(ImportApiFactory factory)
         Assert.Equal("MV001", ex.SqlState);
     }
 
+    /// <summary>
+    /// Regression: NZL was a member until 2021-06-30. Its ballot on a vote of 2021-06-30 is valid; an accepted
+    /// correction moves the vote to 2021-07-01. The approved ballot is kept, but it must not count in a snapshot.
+    /// </summary>
+    [Fact]
+    public async Task Ballot_of_a_state_that_was_not_a_member_on_the_corrected_vote_date_is_not_counted()
+    {
+        var vote = $"MA/{Interlocked.Increment(ref _year)}/1";
+        static byte[] File(string vote, string date, params (string Code, string Ballot)[] rows) => Encoding.UTF8.GetBytes(
+            Header + "\n" + string.Concat(rows.Select(r => $"{vote},76,{date},Edge case,{r.Code},{r.Code},{r.Ballot},2021-07-02T09:00:00Z\n")));
+
+        await _importer.UploadAndWaitAsync("original.csv", File(vote, "2021-06-30", ("NZL", "Y"), ("FRA", "Y"), ("BRA", "N")));
+        await _importer.UploadAndWaitAsync("corrected.csv", File(vote, "2021-07-01", ("FRA", "Y"), ("BRA", "N")));
+        var voteId = (await _dana.GetFromJsonAsync<List<VoteSummaryDto>>("/api/votes?from=2021-06-30&to=2021-07-01", ImportTestClient.Json))!
+            .Single(v => v.AssemblyVoteId == vote).Id;
+        var dateConflict = (await _dana.GetFromJsonAsync<List<ConflictSummaryDto>>($"/api/conflicts?voteId={voteId}", ImportTestClient.Json))!
+            .Single(c => c.Field == Domain.Conflicts.ConflictField.VoteDate);
+        Assert.True((await _dana.PostAsJsonAsync($"/api/conflicts/{dateConflict.Id}/resolution", new { decision = "Accept" })).IsSuccessStatusCode);
+        await SetPositionAsync(voteId, "For", 3);
+
+        var snapshot = await CreateAndWaitAsync("date correction", vote);
+
+        var votes = (await _dana.GetFromJsonAsync<VoteDetailsDto>($"/api/votes/{voteId}", ImportTestClient.Json))!;
+        Assert.Equal(new DateOnly(2021, 7, 1), votes.VoteDate);
+        Assert.Contains(votes.CountryVotes, c => c.StateCode == "NZL"); // approved data untouched
+        var nzl = snapshot.Ranking.Single(r => r.StateCode == "NZL");
+        Assert.Equal(((decimal?)null, (int?)null, 0), (nzl.Score, nzl.Rank, nzl.CountedWeight));
+        var france = snapshot.Ranking.Single(r => r.StateCode == "FRA");
+        var brazil = snapshot.Ranking.Single(r => r.StateCode == "BRA");
+        Assert.Equal((100.0m, 1, 3), (france.Score!.Value, france.Rank!.Value, france.CountedWeight));
+        Assert.Equal((0.0m, 2), (brazil.Score!.Value, brazil.Rank!.Value));
+
+        var breakdown = (await _dana.GetFromJsonAsync<SnapshotCountryDto>($"/api/snapshots/{snapshot.Snapshot.Id}/countries/NZL", ImportTestClient.Json))!;
+        var entry = Assert.Single(breakdown.Votes); // the ballot is part of the frozen inputs, marked not counted
+        Assert.Equal(("Y", false, false), (entry.Ballot, entry.Counted, entry.Matching));
+    }
+
     private async Task<SnapshotDto> CreateAndWaitAsync(string name, params string[] assemblyVoteIds)
     {
         var response = await _dana.PostAsJsonAsync("/api/snapshots", new { name, assemblyVoteIds });

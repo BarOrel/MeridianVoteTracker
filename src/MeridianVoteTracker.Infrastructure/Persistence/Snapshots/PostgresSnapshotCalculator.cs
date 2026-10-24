@@ -9,6 +9,9 @@ namespace MeridianVoteTracker.Infrastructure.Persistence.Snapshots;
 /// position/weight, copy the approved ballots, aggregate per member state. One statement sees one consistent
 /// state of approved data even if a conflict is resolved at the same moment.
 /// Rules (see Snapshot.Rules): only Y/N counted; match = Y with "For" or N with "Against"; no counted vote → no score.
+/// A ballot counts only if the state was a member on the vote's approved date. Imports already reject such
+/// ballots, but an accepted vote-date correction can move a vote outside a state's membership; that ballot is
+/// still copied (inputs stay complete and approved data is untouched) but marked not counted.
 /// </summary>
 internal sealed class PostgresSnapshotCalculator(AppDbContext db) : ISnapshotCalculator
 {
@@ -17,14 +20,21 @@ internal sealed class PostgresSnapshotCalculator(AppDbContext db) : ISnapshotCal
             INSERT INTO snapshot_votes (snapshot_id, vote_id, assembly_vote_id, title, vote_date, position, weight)
             SELECT @id, v.id, v.assembly_vote_id, v.title, v.vote_date, v.position, v.weight
             FROM votes v WHERE v.id = ANY(@votes)
-            RETURNING vote_id, position, weight
+            RETURNING vote_id, vote_date, position, weight
+        ), ballots AS (
+            SELECT cv.vote_id, cv.state_code, cv.ballot, sv.position, sv.weight,
+                   EXISTS (SELECT 1 FROM membership_periods mp
+                           WHERE mp.state_code = cv.state_code
+                             AND sv.vote_date >= mp.member_from
+                             AND (mp.member_to IS NULL OR sv.vote_date <= mp.member_to)) AS was_member
+            FROM country_votes cv JOIN sv ON sv.vote_id = cv.vote_id
         ), se AS (
             INSERT INTO snapshot_entries (snapshot_id, vote_id, state_code, ballot, counted, matching, weight)
-            SELECT @id, cv.vote_id, cv.state_code, cv.ballot,
-                   cv.ballot IN ('Y', 'N'),
-                   (cv.ballot = 'Y' AND sv.position = 'For') OR (cv.ballot = 'N' AND sv.position = 'Against'),
-                   sv.weight
-            FROM country_votes cv JOIN sv ON sv.vote_id = cv.vote_id
+            SELECT @id, vote_id, state_code, ballot,
+                   was_member AND ballot IN ('Y', 'N'),
+                   was_member AND ((ballot = 'Y' AND position = 'For') OR (ballot = 'N' AND position = 'Against')),
+                   weight
+            FROM ballots
             RETURNING state_code, counted, matching, weight
         ), totals AS (
             SELECT m.code AS state_code,
