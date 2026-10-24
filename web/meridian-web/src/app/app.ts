@@ -20,7 +20,7 @@ import { CurrentUser } from './core/current-user';
         Switch user
         <select [value]="currentUser.id()" (change)="switchTo($any($event.target).value)">
           @for (user of users(); track user.id) {
-            <option [value]="user.id">{{ user.displayName }} · {{ user.role }}</option>
+            <option [value]="user.id" [selected]="user.id === currentUser.id()">{{ user.displayName }} · {{ user.role }}</option>
           }
         </select>
       </label>
