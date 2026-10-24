@@ -92,7 +92,7 @@ src/MeridianVoteTracker.Infrastructure  EF Core, migrations + SQL guards, CSV re
 src/MeridianVoteTracker.Api             controllers, X-User-Id auth + policies, ProblemDetails, OpenAPI
 web/meridian-web                        Angular app (generated client in src/app/api)
 tests/                                  unit + integration tests
-AssignmentRequirements/                 brief and source data (kept byte-for-byte)
+AssignmentRequirements/                 source CSVs used by the tests and the demo (kept byte-for-byte)
 ```
 
 ## Requirements coverage
@@ -102,7 +102,7 @@ AssignmentRequirements/                 brief and source data (kept byte-for-byt
 | CON-01..06 | Done (409 with the current state; the UI shows who decided). |
 | HIS-01..04 | Done (file, rows, report, event log with old/new value and source, timeline). |
 | POS-01..04 | Done (admin only in the API, field errors, history, missing position blocks snapshots). |
-| SNP-01..05 | Done. Status is shown while calculating, but without a percentage. Not load-tested on the full 1M-row history. |
+| SNP-01..05 | Done. Status is shown while calculating, but without a percentage. Measured manually on the full history (6,480 votes, ~962k ballots): ~31 s, results match an independent SQL recomputation; there is no automated test at that size. |
 | §7.7 frontend | Done: four screens, generated client, field errors, live status, 409 message. Minimal styling. |
 | §9 technical | OpenAPI ✓ · uniform ProblemDetails ✓ · migrations + constraints ✓ · real-PostgreSQL tests ✓ · no secrets in code ✓ · Correlation id: per request and in worker logs (stored on import jobs); not sent by the UI and no AI calls |
 | §8 PDF bonus / Azure resources | **Not done** (deliberate; see DECISIONS §4) |

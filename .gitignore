@@ -488,3 +488,7 @@ $RECYCLE.BIN/
 storage/
 node_modules/
 .DS_Store
+
+# Assignment brief and scanned sheets: kept locally, not part of the submission repository
+AssignmentRequirements/*.pdf
+AssignmentRequirements/voting_sheets_pdfs/

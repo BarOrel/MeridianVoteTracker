@@ -71,7 +71,7 @@ None of the Azure resources were used, deliberately: the core runs locally with 
 - Run migrations from the pipeline, not at start-up.
 - Blob storage and Key Vault; App Insights with correlation from the UI through the API and the workers.
 - Multiple workers (already safe with `SKIP LOCKED`); push progress (SignalR) instead of polling.
-- Paging for the per-vote report on huge imports; retention and backup policy; load test for snapshots on the full history (not measured yet).
+- Paging for the per-vote report on huge imports; retention and backup policy; an automated load test for snapshots on the full history (measured manually: ~31 s).
 
 ## 6. Next phase with four developers
 1. **Ingestion:** more formats as new `IImportFileReader`s, Blob storage, scale-out workers.
