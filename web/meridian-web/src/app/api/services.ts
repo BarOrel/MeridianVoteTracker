@@ -4,5 +4,6 @@
 
 export { ConflictsService } from './services/conflicts.service';
 export { ImportsService } from './services/imports.service';
+export { SnapshotsService } from './services/snapshots.service';
 export { UsersService } from './services/users.service';
 export { VotesService } from './services/votes.service';

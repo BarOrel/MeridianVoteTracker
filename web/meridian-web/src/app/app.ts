@@ -14,6 +14,7 @@ import { CurrentUser } from './core/current-user';
         <a routerLink="/imports" routerLinkActive="active">Imports</a>
         <a routerLink="/review" routerLinkActive="active">Review</a>
         <a routerLink="/votes" routerLinkActive="active">Votes</a>
+        <a routerLink="/snapshots" routerLinkActive="active">Snapshots</a>
       </nav>
       <label class="user">
         Switch user

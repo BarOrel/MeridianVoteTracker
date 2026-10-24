@@ -8,6 +8,7 @@ import { ApiConfiguration, ApiConfigurationParams } from './api-configuration';
 
 import { ConflictsService } from './services/conflicts.service';
 import { ImportsService } from './services/imports.service';
+import { SnapshotsService } from './services/snapshots.service';
 import { UsersService } from './services/users.service';
 import { VotesService } from './services/votes.service';
 
@@ -21,6 +22,7 @@ import { VotesService } from './services/votes.service';
   providers: [
     ConflictsService,
     ImportsService,
+    SnapshotsService,
     UsersService,
     VotesService,
     ApiConfiguration
