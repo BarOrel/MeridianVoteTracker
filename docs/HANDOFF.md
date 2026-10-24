@@ -20,7 +20,18 @@ Paste this file (or point the new assistant at it) at the start of a new session
   `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`
 - Clearly document unfinished requirements.
 
-## 3. Remaining work, in priority order
+## 3. Status update (2026-10-24)
+All five priorities are implemented and committed:
+- conflicts, 409 handling, timeline and positions;
+- Angular UI: Imports, Report, Review, Votes, Snapshots;
+- immutable snapshots with publication;
+- the final README / DECISIONS (2 pages) / AI_USAGE.
+
+Tests: 103 unit + 52 integration, all green.
+- `docker compose up --build` → web :4200, API :8080.
+- Remaining, only if there is time: a final manual click-through in a browser and a review of AI_USAGE.md wording (it is written in the candidate's voice).
+
+## 3a. Original remaining-work list (now done)
 1. **Conflicts (Phase 4)**:
    - List with filter by vote (CON-01).
    - Details with approved vs. proposed values and the source of each: file, uploader, time (CON-02).
