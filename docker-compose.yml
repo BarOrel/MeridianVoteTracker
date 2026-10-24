@@ -4,9 +4,12 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:?set in .env}
-      POSTGRES_USER: ${POSTGRES_USER:?set in .env}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      # Local development defaults so a fresh clone starts with `docker compose up --build`.
+      # Override any of them with environment variables or a .env file (see .env.example).
+      # The database is only reachable on this machine; use real secrets outside local development.
+      POSTGRES_DB: ${POSTGRES_DB:-meridian}
+      POSTGRES_USER: ${POSTGRES_USER:-meridian}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-meridian-local-dev}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -22,7 +25,7 @@ services:
       context: .
       dockerfile: src/MeridianVoteTracker.Api/Dockerfile
     environment:
-      ConnectionStrings__Postgres: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      ConnectionStrings__Postgres: "Host=db;Port=5432;Database=${POSTGRES_DB:-meridian};Username=${POSTGRES_USER:-meridian};Password=${POSTGRES_PASSWORD:-meridian-local-dev}"
       ImportStorage__RootPath: /app/storage
     ports:
       - "${API_PORT:-8080}:8080"
