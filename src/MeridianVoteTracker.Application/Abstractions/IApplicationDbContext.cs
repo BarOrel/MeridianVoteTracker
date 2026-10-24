@@ -2,6 +2,7 @@ using MeridianVoteTracker.Domain.Conflicts;
 using MeridianVoteTracker.Domain.History;
 using MeridianVoteTracker.Domain.Imports;
 using MeridianVoteTracker.Domain.MemberStates;
+using MeridianVoteTracker.Domain.Snapshots;
 using MeridianVoteTracker.Domain.Users;
 using MeridianVoteTracker.Domain.Votes;
 using Microsoft.EntityFrameworkCore;
@@ -29,6 +30,17 @@ public interface IApplicationDbContext
     DbSet<ImportRow> ImportRows { get; }
 
     DbSet<ImportVoteOutcome> ImportVoteOutcomes { get; }
+
+    /// <summary>Snapshot headers and publications; immutable once completed/published (database triggers).</summary>
+    DbSet<Snapshot> Snapshots { get; }
+
+    DbSet<SnapshotPublication> SnapshotPublications { get; }
+
+    IQueryable<SnapshotVote> SnapshotVotes { get; }
+
+    IQueryable<SnapshotEntry> SnapshotEntries { get; }
+
+    IQueryable<SnapshotResult> SnapshotResults { get; }
 
     IQueryable<Vote> Votes { get; }
 

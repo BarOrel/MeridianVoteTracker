@@ -3,6 +3,7 @@ using MeridianVoteTracker.Domain.Conflicts;
 using MeridianVoteTracker.Domain.History;
 using MeridianVoteTracker.Domain.Imports;
 using MeridianVoteTracker.Domain.MemberStates;
+using MeridianVoteTracker.Domain.Snapshots;
 using MeridianVoteTracker.Domain.Users;
 using MeridianVoteTracker.Domain.Votes;
 using MeridianVoteTracker.Infrastructure.Persistence.Converters;
@@ -23,7 +24,8 @@ namespace MeridianVoteTracker.Infrastructure.Persistence;
 internal sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options), IApplicationDbContext
 {
     /// <summary>Allow-list (not deny-list): a newly added entity type is restricted until consciously opened up.</summary>
-    private static readonly HashSet<Type> OrdinaryWritableTypes = [typeof(ImportJob), typeof(ImportRow), typeof(ImportVoteOutcome)];
+    private static readonly HashSet<Type> OrdinaryWritableTypes =
+        [typeof(ImportJob), typeof(ImportRow), typeof(ImportVoteOutcome), typeof(Snapshot), typeof(SnapshotPublication)];
 
     private int _restrictedWriteScopes;
 
@@ -36,6 +38,13 @@ internal sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbC
     public DbSet<ImportJob> ImportJobs => Set<ImportJob>();
     public DbSet<ImportRow> ImportRows => Set<ImportRow>();
     public DbSet<ImportVoteOutcome> ImportVoteOutcomes => Set<ImportVoteOutcome>();
+    public DbSet<Snapshot> Snapshots => Set<Snapshot>();
+    public DbSet<SnapshotPublication> SnapshotPublications => Set<SnapshotPublication>();
+
+    // Snapshot contents are written only by the calculation SQL; use cases read them untracked.
+    public IQueryable<SnapshotVote> SnapshotVotes => Set<SnapshotVote>().AsNoTracking();
+    public IQueryable<SnapshotEntry> SnapshotEntries => Set<SnapshotEntry>().AsNoTracking();
+    public IQueryable<SnapshotResult> SnapshotResults => Set<SnapshotResult>().AsNoTracking();
 
     // Read-only, untracked views for use cases: entities loaded here can never be persisted by accident.
     IQueryable<Vote> IApplicationDbContext.Votes => Votes.AsNoTracking();

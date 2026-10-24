@@ -623,6 +623,219 @@ namespace MeridianVoteTracker.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("MeridianVoteTracker.Domain.Snapshots.Snapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("error");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Selection")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("selection");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<List<int>>("_voteIds")
+                        .IsRequired()
+                        .HasColumnType("integer[]")
+                        .HasColumnName("vote_ids");
+
+                    b.HasKey("Id")
+                        .HasName("pk_snapshots");
+
+                    b.HasIndex("Status", "CreatedAt")
+                        .HasDatabaseName("ix_snapshots_status_created_at");
+
+                    b.ToTable("snapshots", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_snapshots_status", "status IN ('Pending', 'Completed', 'Failed')");
+                        });
+                });
+
+            modelBuilder.Entity("MeridianVoteTracker.Domain.Snapshots.SnapshotEntry", b =>
+                {
+                    b.Property<Guid>("SnapshotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("snapshot_id");
+
+                    b.Property<string>("StateCode")
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .HasColumnName("state_code")
+                        .IsFixedLength();
+
+                    b.Property<int>("VoteId")
+                        .HasColumnType("integer")
+                        .HasColumnName("vote_id");
+
+                    b.Property<string>("Ballot")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .HasColumnType("character(1)")
+                        .HasColumnName("ballot")
+                        .IsFixedLength();
+
+                    b.Property<bool>("Counted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("counted");
+
+                    b.Property<bool>("Matching")
+                        .HasColumnType("boolean")
+                        .HasColumnName("matching");
+
+                    b.Property<short>("Weight")
+                        .HasColumnType("smallint")
+                        .HasColumnName("weight");
+
+                    b.HasKey("SnapshotId", "StateCode", "VoteId")
+                        .HasName("pk_snapshot_entries");
+
+                    b.HasIndex("SnapshotId", "VoteId")
+                        .HasDatabaseName("ix_snapshot_entries_snapshot_id_vote_id");
+
+                    b.ToTable("snapshot_entries", (string)null);
+                });
+
+            modelBuilder.Entity("MeridianVoteTracker.Domain.Snapshots.SnapshotPublication", b =>
+                {
+                    b.Property<string>("Quarter")
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)")
+                        .HasColumnName("quarter");
+
+                    b.Property<DateTimeOffset>("PublishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_at");
+
+                    b.Property<string>("PublishedBy")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("published_by");
+
+                    b.Property<Guid>("SnapshotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("snapshot_id");
+
+                    b.HasKey("Quarter")
+                        .HasName("pk_snapshot_publications");
+
+                    b.HasIndex("SnapshotId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_snapshot_publications_snapshot_id");
+
+                    b.ToTable("snapshot_publications", (string)null);
+                });
+
+            modelBuilder.Entity("MeridianVoteTracker.Domain.Snapshots.SnapshotResult", b =>
+                {
+                    b.Property<Guid>("SnapshotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("snapshot_id");
+
+                    b.Property<string>("StateCode")
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .HasColumnName("state_code")
+                        .IsFixedLength();
+
+                    b.Property<int>("CountedWeight")
+                        .HasColumnType("integer")
+                        .HasColumnName("counted_weight");
+
+                    b.Property<int>("MatchingWeight")
+                        .HasColumnType("integer")
+                        .HasColumnName("matching_weight");
+
+                    b.Property<int?>("Rank")
+                        .HasColumnType("integer")
+                        .HasColumnName("rank");
+
+                    b.Property<decimal?>("Score")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("numeric(4,1)")
+                        .HasColumnName("score");
+
+                    b.HasKey("SnapshotId", "StateCode")
+                        .HasName("pk_snapshot_results");
+
+                    b.ToTable("snapshot_results", (string)null);
+                });
+
+            modelBuilder.Entity("MeridianVoteTracker.Domain.Snapshots.SnapshotVote", b =>
+                {
+                    b.Property<Guid>("SnapshotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("snapshot_id");
+
+                    b.Property<int>("VoteId")
+                        .HasColumnType("integer")
+                        .HasColumnName("vote_id");
+
+                    b.Property<string>("AssemblyVoteId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("assembly_vote_id");
+
+                    b.Property<string>("Position")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("position");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("title");
+
+                    b.Property<DateOnly>("VoteDate")
+                        .HasColumnType("date")
+                        .HasColumnName("vote_date");
+
+                    b.Property<short>("Weight")
+                        .HasColumnType("smallint")
+                        .HasColumnName("weight");
+
+                    b.HasKey("SnapshotId", "VoteId")
+                        .HasName("pk_snapshot_votes");
+
+                    b.ToTable("snapshot_votes", (string)null);
+                });
+
             modelBuilder.Entity("MeridianVoteTracker.Domain.Users.AppUser", b =>
                 {
                     b.Property<string>("Id")
@@ -862,6 +1075,46 @@ namespace MeridianVoteTracker.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_membership_periods_member_states_state_code");
+                });
+
+            modelBuilder.Entity("MeridianVoteTracker.Domain.Snapshots.SnapshotEntry", b =>
+                {
+                    b.HasOne("MeridianVoteTracker.Domain.Snapshots.SnapshotVote", null)
+                        .WithMany()
+                        .HasForeignKey("SnapshotId", "VoteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_snapshot_entries_snapshot_votes_snapshot_id_vote_id");
+                });
+
+            modelBuilder.Entity("MeridianVoteTracker.Domain.Snapshots.SnapshotPublication", b =>
+                {
+                    b.HasOne("MeridianVoteTracker.Domain.Snapshots.Snapshot", null)
+                        .WithMany()
+                        .HasForeignKey("SnapshotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_snapshot_publications_snapshots_snapshot_id");
+                });
+
+            modelBuilder.Entity("MeridianVoteTracker.Domain.Snapshots.SnapshotResult", b =>
+                {
+                    b.HasOne("MeridianVoteTracker.Domain.Snapshots.Snapshot", null)
+                        .WithMany()
+                        .HasForeignKey("SnapshotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_snapshot_results_snapshots_snapshot_id");
+                });
+
+            modelBuilder.Entity("MeridianVoteTracker.Domain.Snapshots.SnapshotVote", b =>
+                {
+                    b.HasOne("MeridianVoteTracker.Domain.Snapshots.Snapshot", null)
+                        .WithMany()
+                        .HasForeignKey("SnapshotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_snapshot_votes_snapshots_snapshot_id");
                 });
 
             modelBuilder.Entity("MeridianVoteTracker.Domain.Votes.CountryVote", b =>

@@ -4,6 +4,7 @@ using MeridianVoteTracker.Application.Imports.GetImportStatus;
 using MeridianVoteTracker.Application.Imports.Pipeline;
 using MeridianVoteTracker.Application.Imports.ProcessImport;
 using MeridianVoteTracker.Application.Imports.StartImport;
+using MeridianVoteTracker.Application.Snapshots;
 using MeridianVoteTracker.Application.Users.GetUser;
 using MeridianVoteTracker.Application.Users.ListUsers;
 using MeridianVoteTracker.Application.Votes;
@@ -37,6 +38,13 @@ public static class DependencyInjection
         services.AddScoped<GetVoteUseCase>();
         services.AddScoped<GetVoteTimelineUseCase>();
         services.AddScoped<SetVotePositionUseCase>();
+
+        services.AddScoped<CreateSnapshotUseCase>();
+        services.AddScoped<ListSnapshotsUseCase>();
+        services.AddScoped<GetSnapshotUseCase>();
+        services.AddScoped<GetSnapshotCountryUseCase>();
+        services.AddScoped<PublishSnapshotUseCase>();
+        services.AddScoped<CalculateNextSnapshotUseCase>();
         return services;
     }
 }

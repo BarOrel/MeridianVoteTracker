@@ -1,12 +1,14 @@
 using MeridianVoteTracker.Application.Abstractions;
 using MeridianVoteTracker.Application.Imports;
 using MeridianVoteTracker.Application.Imports.Ports;
+using MeridianVoteTracker.Application.Snapshots.Ports;
 using MeridianVoteTracker.Application.Votes.Ports;
 using MeridianVoteTracker.Infrastructure.BackgroundJobs;
 using MeridianVoteTracker.Infrastructure.Imports;
 using MeridianVoteTracker.Infrastructure.Imports.Csv;
 using MeridianVoteTracker.Infrastructure.Persistence;
 using MeridianVoteTracker.Infrastructure.Persistence.Seed;
+using MeridianVoteTracker.Infrastructure.Persistence.Snapshots;
 using MeridianVoteTracker.Infrastructure.Persistence.Votes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -62,6 +64,8 @@ public static class DependencyInjection
             return new ImportProcessingSettings(worker.BatchSize, worker.LeaseDuration, worker.RetryDelay, worker.VotesPerClassificationBatch);
         });
         services.AddHostedService<ImportWorker>();
+        services.AddScoped<ISnapshotCalculator, PostgresSnapshotCalculator>();
+        services.AddHostedService<SnapshotWorker>();
 
         services.AddHealthChecks()
             .AddCheck<PostgresHealthCheck>("postgres", tags: [HealthCheckTags.Ready]);
