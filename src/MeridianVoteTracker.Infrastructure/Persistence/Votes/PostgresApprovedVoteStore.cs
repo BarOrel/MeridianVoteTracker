@@ -84,6 +84,82 @@ internal sealed class PostgresApprovedVoteStore(AppDbContext db) : IApprovedVote
         }
     }
 
+    public async Task<bool> ResolveConflictAsync(Guid conflictId, bool accept, string actor, string? comment, DateTimeOffset at, CancellationToken cancellationToken)
+    {
+        EnsureTransaction();
+        var target = await db.Conflicts.AsNoTracking()
+            .Where(c => c.Id == conflictId)
+            .Join(db.Votes, c => c.VoteId, v => v.Id, (c, v) => new { v.Id, v.AssemblyVoteId })
+            .SingleOrDefaultAsync(cancellationToken);
+        if (target is null)
+        {
+            return false;
+        }
+
+        // Same per-vote lock as imports: decisions and classifications of one vote never interleave,
+        // and everything below reads the state committed before the lock was granted.
+        await LockVotesAsync([target.AssemblyVoteId], cancellationToken);
+
+        using (db.AllowRestrictedWrites())
+        {
+            var conflict = await db.Conflicts.SingleAsync(c => c.Id == conflictId, cancellationToken);
+            var events = new List<VoteHistoryEvent>();
+            if (!accept)
+            {
+                conflict.Reject(actor, at, comment);
+                events.Add(VoteHistoryEvent.ConflictRejected(conflict));
+            }
+            else
+            {
+                conflict.Accept(actor, at, comment);
+                if (conflict.Kind == Domain.Conflicts.ConflictKind.CountryBallot)
+                {
+                    var approved = await db.CountryVotes.SingleAsync(cv => cv.VoteId == conflict.VoteId && cv.StateCode == conflict.StateCode, cancellationToken);
+                    events.Add(approved.ApplyAcceptedConflict(conflict, at));
+                }
+                else
+                {
+                    var vote = await db.Votes.SingleAsync(v => v.Id == conflict.VoteId, cancellationToken);
+                    events.Add(vote.ApplyAcceptedConflict(conflict, at));
+                }
+
+                // Other pending proposals for the same fact were made against a value that no longer exists.
+                var siblings = await db.Conflicts
+                    .Where(c => c.Id != conflictId && c.VoteId == conflict.VoteId && c.Status == Domain.Conflicts.ConflictStatus.Pending
+                        && c.Kind == conflict.Kind && c.Field == conflict.Field && c.StateCode == conflict.StateCode)
+                    .ToListAsync(cancellationToken);
+                foreach (var sibling in siblings)
+                {
+                    sibling.Supersede(conflict.Id, at);
+                    events.Add(VoteHistoryEvent.ConflictSuperseded(sibling));
+                }
+            }
+
+            db.VoteHistoryEvents.AddRange(events);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return true;
+    }
+
+    public async Task<bool> SetPositionAsync(int voteId, Position position, Weight weight, int expectedRevision, string actor, DateTimeOffset at, CancellationToken cancellationToken)
+    {
+        EnsureTransaction();
+        using (db.AllowRestrictedWrites())
+        {
+            var vote = await db.Votes.SingleOrDefaultAsync(v => v.Id == voteId, cancellationToken);
+            if (vote is null)
+            {
+                return false;
+            }
+
+            db.VoteHistoryEvents.Add(vote.SetPosition(position, weight, expectedRevision, actor, at));
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return true;
+    }
+
     private async Task CopyCountryVotesAsync(IReadOnlyList<CountryVote> ballots, CancellationToken cancellationToken)
     {
         if (ballots.Count == 0)

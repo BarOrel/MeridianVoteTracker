@@ -34,6 +34,10 @@ public sealed class UseCaseExceptionHandler(IProblemDetailsService problemDetail
         details.Title = failure.Message;
         details.Detail = failure.Message;
         details.Extensions["code"] = failure.Code;
+        if (failure.CurrentState is not null)
+        {
+            details.Extensions["current"] = failure.CurrentState;
+        }
 
         httpContext.Response.StatusCode = status;
         return await problemDetails.TryWriteAsync(new ProblemDetailsContext

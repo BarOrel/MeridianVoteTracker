@@ -24,4 +24,16 @@ public interface IApprovedVoteStore
     /// approved value. Links each new vote's id into its <see cref="ImportVoteOutcome"/>.
     /// </summary>
     Task SaveImportResultsAsync(Guid importJobId, IReadOnlyList<VoteClassificationResult> results, DateTimeOffset at, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// CON-04/05: decides a conflict under the vote's lock, reading the current state inside the transaction.
+    /// Accept changes the approved value (revision-checked), supersedes other pending proposals for the same
+    /// fact and writes the history; Reject only records the decision. Returns false if the conflict does not exist.
+    /// </summary>
+    /// <exception cref="Domain.Common.DomainException">Already resolved, or the approved value changed since detection.</exception>
+    Task<bool> ResolveConflictAsync(Guid conflictId, bool accept, string actor, string? comment, DateTimeOffset at, CancellationToken cancellationToken);
+
+    /// <summary>POS-01/03: sets position and weight with optimistic concurrency and a history event. False if the vote does not exist.</summary>
+    /// <exception cref="Domain.Common.DomainException">The position was changed by someone else since <paramref name="expectedRevision"/>.</exception>
+    Task<bool> SetPositionAsync(int voteId, Position position, Weight weight, int expectedRevision, string actor, DateTimeOffset at, CancellationToken cancellationToken);
 }

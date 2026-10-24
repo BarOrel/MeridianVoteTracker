@@ -19,6 +19,8 @@ builder.Logging.AddSimpleConsole(options => options.IncludeScopes = true);
 builder.Services
     .AddControllers(options => options.Filters.Add(new AuthorizeFilter()))
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+// ProblemDetails bodies (incl. the "current" state on 409) use the minimal-API JSON options.
+builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddUniformProblemDetails();
 builder.Services.AddExceptionHandler<UseCaseExceptionHandler>();
 builder.Services.AddEndpointsApiExplorer();

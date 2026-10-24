@@ -40,6 +40,11 @@ public sealed class ImportsController : ControllerBase
         return AcceptedAtAction(nameof(GetStatus), new { id = started.ImportJobId }, status);
     }
 
+    /// <summary>Import history, newest first (HIS-01).</summary>
+    [HttpGet]
+    public Task<IReadOnlyList<ImportStatusDto>> List([FromServices] ListImportsUseCase listImports, CancellationToken cancellationToken) =>
+        listImports.ExecuteAsync(cancellationToken);
+
     /// <summary>Current state and progress of an import (ING-02); survives page refreshes.</summary>
     [HttpGet("{id:guid}")]
     [ProducesResponseType<ImportStatusDto>(StatusCodes.Status200OK)]

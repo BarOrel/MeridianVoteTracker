@@ -19,6 +19,9 @@ public sealed class UseCaseException(UseCaseErrorKind kind, string code, string 
     public string Code { get; } = code;
     public string? Field { get; } = field;
 
+    /// <summary>For conflicts (409): the current state of the resource, so the client can show what actually happened.</summary>
+    public object? CurrentState { get; init; }
+
     public static UseCaseException Validation(string field, string code, string message) => new(UseCaseErrorKind.Validation, code, message, field);
 
     public static UseCaseException NotFound(string code, string message) => new(UseCaseErrorKind.NotFound, code, message);
