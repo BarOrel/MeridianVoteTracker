@@ -55,9 +55,23 @@ internal sealed class PostgresSnapshotCalculator(AppDbContext db) : ISnapshotCal
     public async Task CalculateAsync(Guid snapshotId, IReadOnlyList<int> voteIds, CancellationToken cancellationToken)
     {
         EnsureTransaction();
-        await db.Database.ExecuteSqlRawAsync(Calculate,
-            [new NpgsqlParameter("id", snapshotId), new NpgsqlParameter("votes", voteIds.ToArray())], cancellationToken);
+
+        // The full history (~1M ballots) takes ~40 s in Docker, beyond the 30 s default. Raise the timeout for
+        // this one statement only and restore it, so every other command keeps the default.
+        var previousTimeout = db.Database.GetCommandTimeout();
+        db.Database.SetCommandTimeout(CalculationTimeout);
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(Calculate,
+                [new NpgsqlParameter("id", snapshotId), new NpgsqlParameter("votes", voteIds.ToArray())], cancellationToken);
+        }
+        finally
+        {
+            db.Database.SetCommandTimeout(previousTimeout);
+        }
     }
+
+    internal static readonly TimeSpan CalculationTimeout = TimeSpan.FromMinutes(10);
 
     private void EnsureTransaction()
     {
