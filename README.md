@@ -9,8 +9,8 @@ Imports Meridian Assembly vote exports, keeps approved data trustworthy (no sile
 
 ## Run everything
 ```bash
-cp .env.example .env            # adjust the DB password if you like
-docker compose up --build
+docker compose up --build       # works on a fresh clone; local defaults are built in
+# optional: cp .env.example .env  to override the DB name/user/password or the ports
 ```
 
 | | URL |
@@ -54,7 +54,7 @@ Also try `assembly_historic.csv` (962k rows, rows of a vote not contiguous): ~17
 ## Local development
 ```bash
 docker compose up -d db
-dotnet user-secrets --project src/MeridianVoteTracker.Api set "ConnectionStrings:Postgres" "Host=localhost;Port=5432;Database=meridian;Username=meridian;Password=<from .env>"
+dotnet user-secrets --project src/MeridianVoteTracker.Api set "ConnectionStrings:Postgres" "Host=localhost;Port=5432;Database=meridian;Username=meridian;Password=meridian-local-dev"   # or your .env value
 dotnet run --project src/MeridianVoteTracker.Api          # http://localhost:5244
 cd web/meridian-web && npm ci && npm start                 # http://localhost:4200 (proxies /api to :8080)
 ```
@@ -111,4 +111,8 @@ AssignmentRequirements/                 source CSVs used by the tests and the de
 - Authentication is simulated: anyone can send any known `X-User-Id`, as the brief allows.
 - Progress is polled every 2 s, not pushed; there is one worker of each kind per API process (multiple instances are safe).
 - The import report returns all per-vote outcomes in one response; the 6,480 votes of the historic file are not paged.
-- Changing a vote date by an accepted conflict does not re-validate membership against the new date.
+- An accepted vote-date correction keeps the existing approved ballots, even those of a state that was not a member on the new date. Snapshots do not count such ballots; the vote screen still lists them.
+- CSV: an unterminated quote merges the following lines into one invalid record (RFC 4180 behaviour), and `session` values with leading zeros (`079`) are accepted without a normalization note.
+- During staging the total row count is not yet known, so progress shows rows read.
+- Snapshot selection filters (dates, session, vote list) combine with AND. Inputs are captured when the snapshot is calculated, a moment after its creation.
+- The UI does not send a correlation id; the server creates one per request and stores it on import jobs.
