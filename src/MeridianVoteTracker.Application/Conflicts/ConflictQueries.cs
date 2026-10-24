@@ -1,6 +1,7 @@
 using MeridianVoteTracker.Application.Abstractions;
 using MeridianVoteTracker.Application.Common;
 using MeridianVoteTracker.Domain.Conflicts;
+using MeridianVoteTracker.Domain.History;
 using MeridianVoteTracker.Domain.Votes;
 using Microsoft.EntityFrameworkCore;
 
@@ -89,18 +90,28 @@ public sealed class GetConflictUseCase(IApplicationDbContext db)
 
         string currentValue;
         ApprovalProvenance provenance;
+        int currentRevision;
         string? stateName = null;
         if (conflict.Kind == ConflictKind.CountryBallot)
         {
             var approved = await db.CountryVotes.SingleAsync(cv => cv.VoteId == conflict.VoteId && cv.StateCode == conflict.StateCode, cancellationToken);
             currentValue = approved.Ballot.ToCode();
             provenance = approved.Provenance;
+            currentRevision = approved.Revision;
             stateName = await db.MemberStates.Where(m => m.Code == conflict.StateCode).Select(m => m.Name).SingleOrDefaultAsync(cancellationToken);
         }
         else
         {
             currentValue = vote.GetMetadataValue(conflict.Field);
             provenance = vote.MetadataProvenance;
+            currentRevision = vote.MetadataRevision;
+        }
+
+        // The "approved" side must describe the value the analyst compared against. If that value has since been
+        // replaced (this conflict was accepted, or another one), its source comes from the history, not the row.
+        if (currentRevision != conflict.ExpectedRevision)
+        {
+            provenance = await ProvenanceAtDetectionAsync(conflict, provenance, cancellationToken);
         }
 
         var jobIds = new[] { provenance.SourceImportJobId, conflict.SourceImportJobId };
@@ -123,5 +134,40 @@ public sealed class GetConflictUseCase(IApplicationDbContext db)
             Source(provenance.SourceImportJobId, provenance.SourceRowNumber), provenance.ApprovedBy, provenance.ApprovedAt,
             Source(conflict.SourceImportJobId, conflict.SourceRowNumber), conflict.DetectedAt,
             conflict.ResolvedBy, conflict.ResolvedAt, conflict.ResolutionComment, conflict.SupersededByConflictId);
+    }
+
+    /// <summary>
+    /// Reconstructs the provenance of the approved value as it was when the conflict was detected, from the
+    /// append-only history: the first correction of this fact after detection replaced exactly that value and
+    /// recorded its source (file + row); the correction before detection (if any) says who approved it and when,
+    /// otherwise it came from its initial import.
+    /// </summary>
+    private async Task<ApprovalProvenance> ProvenanceAtDetectionAsync(Conflict conflict, ApprovalProvenance current, CancellationToken cancellationToken)
+    {
+        var corrections = await db.VoteHistory
+            .Where(e => e.VoteId == conflict.VoteId && e.Type == VoteHistoryEventType.ApprovedValueCorrected
+                && e.Field == conflict.Field && e.StateCode == conflict.StateCode)
+            .OrderBy(e => e.OccurredAt).ThenBy(e => e.Id)
+            .ToListAsync(cancellationToken);
+        var replaced = corrections.FirstOrDefault(e => e.OccurredAt >= conflict.DetectedAt);
+        if (replaced?.OldSourceImportJobId is not { } sourceJobId)
+        {
+            return current;
+        }
+
+        var previous = corrections.LastOrDefault(e => e.OccurredAt < conflict.DetectedAt);
+        if (previous is not null)
+        {
+            return new ApprovalProvenance(ApprovalOrigin.ConflictResolution, sourceJobId, replaced.OldSourceRowNumber, previous.ConflictId, previous.Actor, previous.OccurredAt);
+        }
+
+        var importedAt = await db.VoteHistory
+            .Where(e => e.VoteId == conflict.VoteId && e.NewSourceImportJobId == sourceJobId
+                && (e.Type == VoteHistoryEventType.CountryVotesAdded || e.Type == VoteHistoryEventType.VoteCreated))
+            .OrderBy(e => e.OccurredAt)
+            .Select(e => (DateTimeOffset?)e.OccurredAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        return new ApprovalProvenance(ApprovalOrigin.InitialImport, sourceJobId, replaced.OldSourceRowNumber, null,
+            ApprovalProvenance.ImportActor, importedAt ?? current.ApprovedAt);
     }
 }

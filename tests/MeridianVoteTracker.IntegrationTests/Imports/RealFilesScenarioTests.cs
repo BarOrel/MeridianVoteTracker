@@ -1,3 +1,5 @@
+using System.Net.Http.Json;
+using MeridianVoteTracker.Application.Conflicts;
 using MeridianVoteTracker.Application.Imports.GetImportReport;
 using MeridianVoteTracker.Application.Imports.GetImportStatus;
 using MeridianVoteTracker.Domain.Conflicts;
@@ -110,6 +112,28 @@ public class RealFilesScenarioTests(RealFilesApiFactory factory)
         // Reports are persisted: the first import's report is unchanged after later imports (ING-15).
         var q1Later = await _dana.GetReportAsync(q1.Import.Id);
         Assert.Equal(q1.Summary, q1Later.Summary);
+
+        // ---- 4. Accept BRA in MA/2024/003, then reopen the conflict (CON-02, CON-06) ----------
+        var api = factory.CreateClient();
+        api.DefaultRequestHeaders.Add("X-User-Id", "omar");
+        var conflicts = (await api.GetFromJsonAsync<List<ConflictSummaryDto>>("/api/conflicts", ImportTestClient.Json))!;
+        var bra = conflicts.Single(c => c.AssemblyVoteId == "MA/2024/003" && c.StateCode == "BRA");
+        var before = (await api.GetFromJsonAsync<ConflictDto>($"/api/conflicts/{bra.Id}", ImportTestClient.Json))!;
+        Assert.True((await api.PostAsJsonAsync($"/api/conflicts/{bra.Id}/resolution", new { decision = "Accept", comment = "corrigendum" })).IsSuccessStatusCode);
+
+        var reopened = (await api.GetFromJsonAsync<ConflictDto>($"/api/conflicts/{bra.Id}", ImportTestClient.Json))!;
+        Assert.Equal((ConflictStatus.Accepted, "Y", "A", "A"),
+            (reopened.Status, reopened.ApprovedValueAtDetection, reopened.ProposedValue, reopened.CurrentApprovedValue));
+        // The previous value's source is still the original file (uploaded by Dana), not the accepted correction.
+        Assert.Equal(("assembly_export_2024_q1.csv", "dana", q1.Import.Id), (reopened.ApprovedSource.FileName, reopened.ApprovedSource.UploadedBy, reopened.ApprovedSource.ImportJobId));
+        Assert.Equal(before.ApprovedSource, reopened.ApprovedSource);
+        Assert.Equal((before.ApprovedBy, before.ApprovedAt), (reopened.ApprovedBy, reopened.ApprovedAt));
+        Assert.Equal(("assembly_export_2024_q1_rev2.csv", "omar"), (reopened.ProposedSource.FileName, reopened.ProposedSource.UploadedBy));
+
+        // A conflict that is still pending keeps describing the current approved value (unchanged path).
+        var ind = conflicts.Single(c => c.AssemblyVoteId == "MA/2024/003" && c.StateCode == "IND");
+        var indDetails = (await api.GetFromJsonAsync<ConflictDto>($"/api/conflicts/{ind.Id}", ImportTestClient.Json))!;
+        Assert.Equal(("assembly_export_2024_q1.csv", ApprovalProvenance.ImportActor), (indDetails.ApprovedSource.FileName, indDetails.ApprovedBy));
     }
 
     private static async Task<ImportReportDto> UploadAsync(ImportTestClient client, string file)
